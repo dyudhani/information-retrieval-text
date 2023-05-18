@@ -1,5 +1,5 @@
 # information-retrieval-text
-sistem information retrieval yang didalam nya terdapatnya metode Boolean, TFIDF, VSM
+sistem information retrieval yang didalam nya terdapatnya metode Boolean, TFIDF, VSM<br>
 
 To install Streamlit and add it to your `README.md` file, you can follow these steps:
 
@@ -44,8 +44,6 @@ To install Streamlit and add it to your `README.md` file, you can follow these s
 
    ```shell
    pip install streamlit
-   ```
-
    ```
 
 8. Save the `README.md` file.
