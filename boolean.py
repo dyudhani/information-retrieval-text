@@ -9,10 +9,6 @@ import pandas as pd
 def render_page1():
     
     
-    
-    Stopwords = set(stopwords.words('english'))
-
-
     def remove_special_characters(text):
         regex = re.compile('[^a-zA-Z0-9\s]')
         text_returned = re.sub(regex, '', text)
@@ -20,6 +16,7 @@ def render_page1():
 
 
     def preprocess(text):
+        Stopwords = set(stopwords.words('english'))
         text = remove_special_characters(text)
         text = re.sub(re.compile('\d'), '', text)
         words = word_tokenize(text)
@@ -129,9 +126,9 @@ def render_page1():
 
     # Pemilihan preprocessing menggunakan stemming atau lemmatization
     st.subheader("Preprocessing")
-    use_stem_or_lem = st.selectbox(
-        "Stemming/Lemmatization", ("Stemming", "Lemmatization"))
-    is_using_stopword = st.checkbox("Stopword Removal", value=True)
+    # use_stem_or_lem = st.selectbox(
+    #     "Stemming/Lemmatization", ("Stemming", "Lemmatization"))
+    # is_using_stopword = st.checkbox("Stopword Removal", value=True)
     
     st.header("")
     
