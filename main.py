@@ -27,6 +27,6 @@ st.title(selected)
 if selected == "Home":
   home.render_home()
 elif selected == "Boolean":
-  boolean.render_page1()
+  boolean.render_boolean()
 elif selected == "TF-IDF":
-  TFIDF.render_page2()
+  TFIDF.render_tfidf()

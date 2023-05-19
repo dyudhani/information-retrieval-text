@@ -9,7 +9,7 @@ from nltk.stem import WordNetLemmatizer
 from nltk.stem import PorterStemmer
 from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
 
-def render_page1():
+def render_boolean():
 
     # Menyembunyikan kolom pertama dalam sebuah tabel
     st.markdown("""
@@ -64,12 +64,9 @@ def render_page1():
     # preprocessing menggunakan stemming and stopword
     st.subheader("Preprocessing")
     use_stopwords = st.checkbox("Stopword Removal", value=True)
-    st.header("") #space enter
     stem_or_lem = st.selectbox(
         "Stemming/Lemmatization", ("Stemming", "Lemmatization"))
-    st.header("") #space enter
     stopword_lang = st.selectbox("Stopwords Language", ("Bahasa Indonesia", "English"))
-    st.header("") #space enter
     
     # Input Dokumen Berupa text_area dan setiap enter beda dokumen
     documents = st.text_area("Input Your Document", "").split()
@@ -77,10 +74,10 @@ def render_page1():
     
     # Input Query yang diinginkan
     query = st.text_input("Enter Your Query")
-    query = [preprocess(query, stem_or_lem, use_stopwords, stopword_lang) for doc in documents]
+    query = preprocess(query, stem_or_lem, use_stopwords, stopword_lang)
     
     # Tokenization
-    query_token = word_tokenize(query)
+    query_token = [doc.lower().split() for doc in documents]
     
     
     def finding_all_unique_tokens_and_freq(tokens):
@@ -110,7 +107,19 @@ def render_page1():
             rows.append(row)
         return rows
     
-    index, index_files = table_inverted_index(documents)
+    def table_incidence_matrix(data, indexed_files):
+        rows = []
+        for key, val in data.items():
+            row = [key]
+            for file_id, file_name in indexed_files.items():
+                if file_id in val:
+                    row.append("1")
+                else:
+                    row.append("0")
+            rows.append(row)
+        return rows
+    
+    index, index_files = build_index(documents)
     
     
     

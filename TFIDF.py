@@ -1,6 +1,6 @@
 import streamlit as st
 
-def render_page2():
+def render_tfidf():
     st.text("Page 1")
     st.text("Page 1")
     st.text("Page 1")
