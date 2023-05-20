@@ -1,5 +1,4 @@
 import streamlit as st
-import streamlit as st
 import nltk
 import re
 import pandas as pd
@@ -10,8 +9,18 @@ from nltk.stem import PorterStemmer
 from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
 
 def render_boolean():
+    
+    # inisiasi stopword dan wordnetlemmatizer
+    stopwords_eng = set(stopwords.words('english'))
+    
+    # read stopwordid.txt
+    stopwords_id = open('stopwordid.txt')
+    stopwords_id = set(stopwords_id.read().split())
 
-    # Menyembunyikan kolom pertama dalam sebuah tabel
+    lemmatizer = WordNetLemmatizer()
+    stemmer = PorterStemmer()
+    sastrawi_stemmer = StemmerFactory().create_stemmer()
+
     st.markdown("""
     <style>
     table td:nth-child(1) {
@@ -23,91 +32,66 @@ def render_boolean():
     </style>
     """, unsafe_allow_html=True)
 
-    # Penjelasan Boolean dan isi didalam nya
-    st.write("Pada proses ini, matriks kejadian (incident matrix) digunakan untuk merepresentasikan hubungan antara dokumen dan term-term yang ada dalam koleksi. Sementara itu, inverted index (indeks terbalik) membantu dalam pengindeksan dan pencarian yang efisien dengan mengaitkan setiap term dengan dokumen-dokumen yang mengandung term tersebut")
-    
-    def preprocess(text, stem_or_lem, use_stopwords, stopword_lang):
-        
-        # inisiasi stopword dan wordnetlemmatizer
-        stopword = set(stopwords.words('english'))
-        
-        # read stopwordid.txt
-        stopwords_id = open('stopwordid.txt')
-        stopwords_id = set(stopwords_id.read().split())
 
-        lemmatizer = WordNetLemmatizer()
-        stemmer = PorterStemmer()
-        sastrawi_stemmer = StemmerFactory().create_stemmer()
+    def remove_special_characters(text):
+        regex = re.compile('[^a-zA-Z0-9\s]')
+        text_returned = re.sub(regex, '', text)
+        return text_returned
 
-        # lowercase
-        text = text.lower()
+
+    def preprocess(text, stop_language):
+        text = remove_special_characters(text)
+        text = re.sub(re.compile('\d'), '', text)
+        words = word_tokenize(text)
         
-        # stopword removal
-        if use_stopwords == True:
-            if stopword_lang == "Bahasa Indonesia":
-                text = ' '.join([token for token in text.split()
-                                if token not in stopwords_id])
+        if is_using_stopword == True:
+            if stop_language == "Indonesia":
+                words = [word.lower() for word in words if word not in stopwords_id]
             else:
-                text = ' '.join([token for token in text.split()
-                                if token not in stopword])
+                words = [word.lower() for word in words if word not in stopwords_eng]
                 
-        # lemmatization
-        if stem_or_lem == "Lemmatization":
-            text = ' '.join([lemmatizer.lemmatize(token) for token in text.split()])
-        elif stem_or_lem == "Stemming":
-            if (stopword_lang == "Bahasa Indonesia"):
-                text = ' '.join([sastrawi_stemmer.stem(token)for token in text.split()])
-            else:
-                text = ' '.join([stemmer.stem(word) for word in text.split()])
-        return text
-    
-    # preprocessing menggunakan stemming and stopword
-    st.subheader("Preprocessing")
-    use_stopwords = st.checkbox("Stopword Removal", value=True)
-    stem_or_lem = st.selectbox(
-        "Stemming/Lemmatization", ("Stemming", "Lemmatization"))
-    stopword_lang = st.selectbox("Stopwords Language", ("Bahasa Indonesia", "English"))
-    
-    # Input Dokumen Berupa text_area dan setiap enter beda dokumen
-    documents = st.text_area("Input Your Document", "").split()
-    documents = [preprocess(doc, stem_or_lem, use_stopwords, stopword_lang) for doc in documents]
-    
-    # Input Query yang diinginkan
-    query = st.text_input("Enter Your Query")
-    query = preprocess(query, stem_or_lem, use_stopwords, stopword_lang)
-    
-    # Tokenization
-    query_token = [doc.lower().split() for doc in documents]
-    
-    
-    def finding_all_unique_tokens_and_freq(tokens):
+        if use_stem_or_lem == "Stemming":
+            if (stop_language == "Indonesia"):
+                words = [sastrawi_stemmer.stem(word) for word in words]
+            else:   
+                words = [stemmer.stem(word) for word in words]
+                
+        elif use_stem_or_lem == "Lemmatization":
+            words = [lemmatizer.lemmatize(word) for word in words]
+        return words
+
+
+    def finding_all_unique_words_and_freq(words):
         word_freq = {}
-        for token in tokens:
-            word_freq[token] = tokens.count(token)
+        for word in words:
+            word_freq[word] = words.count(word)
         return word_freq
 
-    def build_index(documents):
+
+    def build_index(text_list):
         idx = 1
         indexed_files = {}
         index = {}
-        for text in documents:
-            tokens = preprocess(text)
+        for text in text_list:
+            words = preprocess(text, stop_language)
             indexed_files[idx] = f"dokumen{idx}"
-            for token, freq in finding_all_unique_tokens_and_freq(tokens).items():
-                if token not in index:
-                    index[token] = {}
-                index[token][idx] = freq
+            for word, freq in finding_all_unique_words_and_freq(words).items():
+                if word not in index:
+                    index[word] = {}
+                index[word][idx] = freq
             idx += 1
         return index, indexed_files
-    
-    def table_inverted_index(data):
+
+
+    def build_table(data):
         rows = []
         for key, val in data.items():
             row = [key, val]
             rows.append(row)
         return rows
-    
-    def table_incidence_matrix(data, indexed_files):
+
+
+    def build_table_incidence_matrix(data, indexed_files):
         rows = []
         for key, val in data.items():
             row = [key]
@@ -118,11 +102,90 @@ def render_boolean():
                     row.append("0")
             rows.append(row)
         return rows
+
+
+    def search(query_words, index, indexed_files):
+        connecting_words = []
+        different_words = []
+        for word in query_words:
+            if word.lower() in ["and", "or", "not"]:
+                connecting_words.append(word.lower())
+            else:
+                different_words.append(word.lower())
+        if not different_words:
+            st.write("Please enter query words")
+            return []
+        results = set(index[different_words[0]])
+        for word in different_words[1:]:
+            if word.lower() in index:
+                results = set(index[word.lower()]) & results
+            else:
+                st.write(f"{word} not found in documents")
+                return []
+        for word in connecting_words:
+            if word == "and":
+                next_results = set(index[different_words[0]])
+                for word in different_words[1:]:
+                    if word.lower() in index:
+                        next_results = set(index[word.lower()]) & next_results
+                    else:
+                        st.write(f"{word} not found in documents")
+                        return []
+                results = results & next_results
+            elif word == "or":
+                next_results = set(index[different_words[0]])
+                for word in different_words[1:]:
+                    if word.lower() in index:
+                        next_results = set(index[word.lower()]) | next_results
+                results = results | next_results
+            elif word == "not":
+                not_results = set()
+                for word in different_words[1:]:
+                    if word.lower() in index:
+                        not_results = not_results | set(index[word.lower()])
+                results = set(index[different_words[0]]) - not_results
+        return results
+
+
+    # Penjelasan Boolean dan isi didalamnya
+    st.write("Pada proses ini, matriks kejadian (incident matrix) digunakan untuk merepresentasikan hubungan antara dokumen dan term-term yang ada dalam koleksi. Sementara itu, inverted index (indeks terbalik) membantu dalam pengindeksan dan pencarian yang efisien dengan mengaitkan setiap term dengan dokumen-dokumen yang mengandung term tersebut")
     
-    index, index_files = build_index(documents)
+    st.subheader("")
+    is_using_stopword = st.checkbox("Stopword Removal", value=True)
+    use_stem_or_lem = st.selectbox("Stemming/Lemmatization", ("Stemming", "Lemmatization"))
+    stop_language = st.selectbox("Stopwords Language", ("Indonesia", "English"))
+    "---"
     
-    
-    
-    # Inverted Index and Incident Matrix
-    # if query_token:
+    text_list = st.text_area("Dokumen", "").split()
+    index, indexed_files = build_index(text_list)
+
+    query = st.text_input('Enter your query:')
+    query_words = word_tokenize(query)
+
+    if query_words:
+
+        inverted_index_table = build_table(index)
+        st.subheader("Inverted Index")
+        st.table(inverted_index_table)
         
+        results_files = []
+        if query_words:
+            files = search(query_words, index, indexed_files)
+            results_files = [indexed_files[file_id] for file_id in files]
+
+        st.subheader("Incidence Matrix")
+        incidence_matrix_table_header = [
+            "Term"] + [file_name for file_name in indexed_files.values()]
+        incidence_matrix_table = build_table_incidence_matrix(index, indexed_files)
+        df_incidence_matrix_table = pd.DataFrame(
+            incidence_matrix_table, columns=incidence_matrix_table_header)
+        st.table(df_incidence_matrix_table)
+
+        if not results_files:
+            st.warning("No matching files")
+        else:
+            st.subheader("Results")
+            st.markdown(f"""
+                    Dokumen yang relevan dengan query adalah:
+                        **{', '.join(results_files)}**
+                    """)
