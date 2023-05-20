@@ -156,7 +156,7 @@ def render_boolean():
     stop_language = st.selectbox("Stopwords Language", ("Indonesia", "English"))
     "---"
     
-    text_list = st.text_area("Dokumen", "").split()
+    text_list = st.text_area("Enter Your Documents: ", "").split()
     index, indexed_files = build_index(text_list)
 
     query = st.text_input('Enter your query:')
