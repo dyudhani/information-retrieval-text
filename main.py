@@ -1,7 +1,8 @@
 import sys
 import home
 import boolean
-import TFIDF 
+import TFIDF
+import VSM
 import streamlit as st
 from streamlit_option_menu import option_menu
 
@@ -30,3 +31,5 @@ elif selected == "Boolean":
   boolean.render_boolean()
 elif selected == "TF-IDF":
   TFIDF.render_tfidf()
+elif selected == "VSM":
+  VSM.render_vsm()
