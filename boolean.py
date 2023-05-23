@@ -151,26 +151,25 @@ def render_boolean():
     st.write("Pada proses ini, matriks kejadian (incident matrix) digunakan untuk merepresentasikan hubungan antara dokumen dan term-term yang ada dalam koleksi. Sementara itu, inverted index (indeks terbalik) membantu dalam pengindeksan dan pencarian yang efisien dengan mengaitkan setiap term dengan dokumen-dokumen yang mengandung term tersebut")
     
     st.subheader("")
+    stop_language = st.selectbox("Stopwords Language", ("Indonesia", "English"))
     is_using_stopword = st.checkbox("Stopword Removal", value=True)
     use_stem_or_lem = st.selectbox("Stemming/Lemmatization", ("Stemming", "Lemmatization"))
-    stop_language = st.selectbox("Stopwords Language", ("Indonesia", "English"))
-    "---"
     
-    text_list = st.text_area("Enter Your Documents: ", "").split()
+    text_list = st.text_area("Enter Your Documents :", "").split()
     index, indexed_files = build_index(text_list)
 
-    query = st.text_input('Enter your query:')
-    query_words = word_tokenize(query)
+    query = st.text_input('Enter your query :')
+    query = preprocess(query, stop_language)
 
-    if query_words:
+    if query:
 
         inverted_index_table = build_table(index)
         st.subheader("Inverted Index")
         st.table(inverted_index_table)
         
         results_files = []
-        if query_words:
-            files = search(query_words, index, indexed_files)
+        if query:
+            files = search(query, index, indexed_files)
             results_files = [indexed_files[file_id] for file_id in files]
 
         st.subheader("Incidence Matrix")
