@@ -10,6 +10,17 @@ from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
 
 def render_boolean():
     
+    st.markdown("""
+    <style>
+    table td:nth-child(1) {
+        display: none
+    }
+    table th:nth-child(1) {
+        display: none
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
     # inisiasi stopword dan wordnetlemmatizer
     stopwords_eng = set(stopwords.words('english'))
     
@@ -21,17 +32,6 @@ def render_boolean():
     stemmer = PorterStemmer()
     sastrawi_stemmer = StemmerFactory().create_stemmer()
 
-    st.markdown("""
-    <style>
-    table td:nth-child(1) {
-        display: none
-    }
-    table th:nth-child(1) {
-        display: none
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
 
     def remove_special_characters(text):
         regex = re.compile('[^a-zA-Z0-9\s]')
@@ -39,24 +39,24 @@ def render_boolean():
         return text_returned
 
 
-    def preprocess(text, stop_language):
+    def preprocess(text, use_stopword,  stop_language, stem_or_lem):
         text = remove_special_characters(text)
         text = re.sub(re.compile('\d'), '', text)
         words = word_tokenize(text)
         
-        if is_using_stopword == True:
+        if use_stopword == True:
             if stop_language == "Indonesia":
                 words = [word.lower() for word in words if word not in stopwords_id]
             else:
                 words = [word.lower() for word in words if word not in stopwords_eng]
                 
-        if use_stem_or_lem == "Stemming":
+        if stem_or_lem == "Stemming":
             if (stop_language == "Indonesia"):
                 words = [sastrawi_stemmer.stem(word) for word in words]
             else:   
                 words = [stemmer.stem(word) for word in words]
                 
-        elif use_stem_or_lem == "Lemmatization":
+        elif stem_or_lem == "Lemmatization":
             words = [lemmatizer.lemmatize(word) for word in words]
         return words
 
@@ -73,7 +73,7 @@ def render_boolean():
         indexed_files = {}
         index = {}
         for text in text_list:
-            words = preprocess(text, stop_language)
+            words = preprocess(text, stop_language, use_stopword, stem_or_lem)
             indexed_files[idx] = f"dokumen{idx}"
             for word, freq in finding_all_unique_words_and_freq(words).items():
                 if word not in index:
@@ -152,14 +152,14 @@ def render_boolean():
     
     st.subheader("")
     stop_language = st.selectbox("Stopwords Language", ("Indonesia", "English"))
-    is_using_stopword = st.checkbox("Stopword Removal", value=True)
-    use_stem_or_lem = st.selectbox("Stemming/Lemmatization", ("Stemming", "Lemmatization"))
+    use_stopword = st.checkbox("Stopword Removal", value=True)
+    stem_or_lem = st.selectbox("Stemming/Lemmatization", ("Stemming", "Lemmatization"))
     
     text_list = st.text_area("Enter Your Documents :", "").split()
     index, indexed_files = build_index(text_list)
 
     query = st.text_input('Enter your query :')
-    query = preprocess(query, stop_language)
+    query = preprocess(query, use_stopword,  stop_language, stem_or_lem)
 
     if query:
 
