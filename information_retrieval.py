@@ -3,14 +3,15 @@ import re
 import pandas as pd
 import numpy as np
 import math
+import nltk
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from nltk.stem import PorterStemmer
 from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
 
-def render_vsm():
-    
+def render_information_retrieval():
+  
     st.markdown("""
     <style>
     table td:nth-child(1) {
@@ -21,10 +22,10 @@ def render_vsm():
     }
     </style>
     """, unsafe_allow_html=True)
-    
+
     # Inisiasi stopword dan WordNetLemmatizer
     stopwords_eng = set(stopwords.words('english'))
-    
+
     # Read stopwordid.txt
     stopwords_id = open('stopwordid.txt')
     stopwords_id = set(stopwords_id.read().split())
@@ -32,7 +33,7 @@ def render_vsm():
     lemmatizer = WordNetLemmatizer()
     stemmer = PorterStemmer()
     sastrawi_stemmer = StemmerFactory().create_stemmer()
-    
+
     def remove_special_characters(text):
         regex = re.compile('[^a-zA-Z0-9\s]')
         text_returned = re.sub(regex, '', text)
@@ -44,7 +45,7 @@ def render_vsm():
         text = remove_special_characters(text)
         text = re.sub(re.compile('\d'), '', text)
         
-        if use_stopword:
+        if use_stopword == True:
             if stop_language == "Indonesia":
                 text = ' '.join([word for word in text.split() if word not in stopwords_id])
             else:
@@ -65,7 +66,7 @@ def render_vsm():
             'Query': [query.split()]
         })
         st.table(df_query)
-
+        
     def display_preprocessed_documents(tokens):
         D = len(documents) + 1
         df_token = pd.DataFrame({
@@ -73,8 +74,171 @@ def render_vsm():
             'Token': tokens
         })
         st.table(df_token)
+    
+    """ Boolean Function """
+    def B__unique_words_and_freq(words):
+        word_freq = {}
+        for word in words:
+            word_freq[word] = words.count(word)
+        return word_freq
 
-    def calculate_tfidf(documents, query, tokens, stopwords_id, stopwords_eng, sastrawi_stemmer, stemmer, lemmatizer):   
+    def B_build_index(text_list):
+        idx = 1
+        indexed_files = {}
+        index = {}
+        for text in text_list:
+            words = preprocess(text, stop_language, use_stopword, stem_or_lem)
+            indexed_files[idx] = f"dokumen{idx}"
+            for word, freq in B__unique_words_and_freq(words).items():
+                if word not in index:
+                    index[word] = {}
+                index[word][idx] = freq
+            idx += 1
+        return index, indexed_files
+
+    def B_build_table(data):
+        rows = []
+        for key, val in data.items():
+            row = [key, val]
+            rows.append(row)
+        return rows
+
+    def B_build_table_incidence_matrix(data, indexed_files):
+        rows = []
+        for key, val in data.items():
+            row = [key]
+            for file_id, file_name in indexed_files.items():
+                if file_id in val:
+                    row.append("1")
+                else:
+                    row.append("0")
+            rows.append(row)
+        return rows
+
+    def B_search(query_words, index, indexed_files):
+        connecting_words = []
+        different_words = []
+        for word in query_words:
+            if word.lower() in ["and", "or", "not"]:
+                connecting_words.append(word.lower())
+            else:
+                different_words.append(word.lower())
+        if not different_words:
+            st.write("Please enter query words")
+            return []
+        results = set(index[different_words[0]])
+        for word in different_words[1:]:
+            if word.lower() in index:
+                results = set(index[word.lower()]) & results
+            else:
+                st.write(f"{word} not found in documents")
+                return []
+        for word in connecting_words:
+            if word == "and":
+                next_results = set(index[different_words[0]])
+                for word in different_words[1:]:
+                    if word.lower() in index:
+                        next_results = set(index[word.lower()]) & next_results
+                    else:
+                        st.write(f"{word} not found in documents")
+                        return []
+                results = results & next_results
+            elif word == "or":
+                next_results = set(index[different_words[0]])
+                for word in different_words[1:]:
+                    if word.lower() in index:
+                        next_results = set(index[word.lower()]) | next_results
+                results = results | next_results
+            elif word == "not":
+                not_results = set()
+                for word in different_words[1:]:
+                    if word.lower() in index:
+                        not_results = not_results | set(index[word.lower()])
+                results = set(index[different_words[0]]) - not_results
+        return results
+    
+    """ TF-IDF Function """
+    def tfidf_display_query(documents, query, tokens):
+        
+        # menghitung df dan menghitung idf
+        df = {}
+        D = len(documents)
+        
+        for i in range(D):
+            for token in set(tokens[i]):
+                if token not in df:
+                    df[token] = 1
+                else:
+                    df[token] += 1
+
+        idf = {token: math.log10(D/df[token]) for token in df}
+
+        # menghitung tf
+        tf = []
+        for i in range(D):
+            tf.append({})
+            for token in tokens[i]:
+                if token not in tf[i]:
+                    tf[i][token] = 1
+                else:
+                    tf[i][token] += 1
+
+
+        # menghitung bobot tf-idf
+        tfidf = []
+        for i in range(D):
+            tfidf.append({})
+            for token in tf[i]:
+                tfidf[i][token] = tf[i][token] * idf[token]
+
+        # menyimpan hasil pada dataframe
+        df_result = pd.DataFrame(columns=['Q'] + ['tf_d'+str(i+1) for i in range(D)] + ['df', 'D/df', 'IDF', 'IDF+1'] + ['weight_d'+str(i+1) for i in range(D)])
+        for token in query.lower().split():
+            row = {'Q': token}
+            for i in range(D):
+                # tf_i
+                if token in tf[i]:
+                    row['tf_d'+str(i+1)] = tf[i][token]
+                else:
+                    row['tf_d'+str(i+1)] = 0
+                # weight_i
+                if token in tfidf[i]:
+                    row['weight_d'+str(i+1)] = tfidf[i][token] + 1
+                else:
+                    row['weight_d'+str(i+1)] = 0
+            # df
+            if token in df:
+                df_ = df[token]
+            else:
+                df_ = 0
+
+            # D/df
+            if df_ > 0:
+                D_df = D / df_
+            else:
+                D_df = 0
+
+            # IDF
+            if token in idf:
+                IDF = idf[token]
+            else:
+                IDF = 0
+
+            # IDF+1
+            IDF_1 = IDF + 1
+
+            row['df'] = df_
+            row['D/df'] = D_df
+            row['IDF'] = IDF
+            row['IDF+1'] = IDF_1
+
+            df_result = df_result.append(row, ignore_index=True)
+
+        st.table(df_result)
+        
+        return df_result
+    
+    def tfidf_display_documents(documents, tokens):   
         
         lexicon = []
         for token in tokens:
@@ -216,10 +380,13 @@ def render_vsm():
 
             df_result = pd.concat(
                 [df_result, pd.DataFrame(row, index=[0])], ignore_index=True)
+            
+        st.table(df_result)
 
         return df_result
     
-    def calculate_distance(df_result):
+    """ VSM Function """
+    def vsm_distance(df_result):
         D = len(documents) + 1
 
         df_distance = pd.DataFrame(columns=['Token'] + ['Q' + chr(178)] + ['D' + str(i) + chr(178) for i in range(1, D)])
@@ -247,9 +414,8 @@ def render_vsm():
         sqrtd_distance = sqrt_d
 
         return df_distance, sqrtq_distance, sqrtd_distance
-
-            
-    def calculate_svm(df_result,  df_distance, sqrt_q, sqrt_d):
+    
+    def svm_calculate(df_result,  df_distance, sqrt_q, sqrt_d):
         
         D = len(documents) + 1
         
@@ -278,7 +444,7 @@ def render_vsm():
         
         return df_space_vector, sqrtq_svm, sqrtd_svm
     
-    def calculate_cosine(df_space_vector, sqrt_q, sqrt_d):
+    def svm_calculate_cosine(df_space_vector, sqrt_q, sqrt_d):
         D = len(documents) + 1
         
         # df_cosine = pd.DataFrame(index=['Cosine'], columns=['D'+str(i) for i in range(1, D)])
@@ -291,6 +457,15 @@ def render_vsm():
         # st.table(df_cosine)
         
         cosine_values = []
+        
+        df_cosine = pd.DataFrame(index=['Cosine'], columns=['D'+str(i) for i in range(1, D)])
+        
+        for i in range(1, D):
+            st.latex(
+                r'''Cosine\;\theta_{D''' + str(i) + r'''}=\frac{''' + str(round(df_space_vector['Q*D' + str(i)].sum(), 4)) + '''}{''' + str(sqrt_q) + ''' * ''' + str(sqrt_d[i-1]) + '''}= ''' + str(round(df_space_vector['Q*D' + str(i)].sum() / (sqrt_q * sqrt_d[i-1]), 4)) + r'''''')
+            
+            df_cosine['D'+str(i)] = df_space_vector['Q*D' + str(i)].sum() / (sqrt_q * sqrt_d[i-1])
+            
         for i in range(1, D):
             cosine_value = df_space_vector['Q*D' + str(i)].sum() / (sqrt_q * sqrt_d[i-1])
             cosine_values.append(cosine_value)
@@ -301,23 +476,21 @@ def render_vsm():
         df_cosine = pd.DataFrame(data=[cosine_values], columns=ranked_documents, index=['Cosine'])
         st.table(df_cosine)
 
-        st.subheader("Ranking based on Cosine Similarity")
+        st.write("Ranking based on Cosine Similarity :")
         for rank, document in enumerate(ranked_documents):
             st.write(f"Rank {rank+1}: {document}")
-
-    # Penjelasan Boolean dan isi didalamnya
-    st.write("VSM (Vector Space Model) adalah salah satu metode yang digunakan dalam pengambilan informasi dan pemodelan bahasa untuk menganalisis dan merepresentasikan teks. Konsep dasar dari VSM adalah mengubah dokumen-dokumen teks menjadi representasi vektor dalam ruang multidimensi.")
-
-    st.subheader("")
+    
+    """"""""""""""""""""""""""""""""""""
+    
     stop_language = st.selectbox("Stopwords Language", ("Indonesia", "English"))
     use_stopword = st.checkbox("Stopword Removal", value=True)
     stem_or_lem = st.selectbox("Stemming/Lemmatization", ("Stemming", "Lemmatization"))
     
-    select_documents = st.selectbox("Choose File or Text", ("File", "Text"))
+    select_documents = st.selectbox("Choose File or Text", ("Files", "Texts"))
     
     documents = []
     
-    if select_documents == "File":
+    if select_documents == "Files":
         files = st.file_uploader("Upload one or more files", accept_multiple_files=True)
         documents = []
         for file in files:
@@ -328,8 +501,8 @@ def render_vsm():
             else:
                 documents.append(content.decode("utf-8"))
                     
-    elif select_documents == "Text":
-        text_area = st.text_area("Enter Your Documents : ").split("\n")
+    elif select_documents == "Texts":
+        text_area = st.text_area("Enter Your Documents : ").split()
         documents.extend(text_area)
         
     documents = [preprocess(doc, use_stopword, stop_language, stem_or_lem) for doc in documents]
@@ -340,36 +513,56 @@ def render_vsm():
     # tokenisasi
     tokens = [query.split()] + [doc.lower().split() for doc in documents]
     
+    D = len(documents)
+    
     lexicon = []
     for token in tokens:
         for word in token:
             if word not in lexicon:
                 lexicon.append(word)
-            
-    # menampilkan output pada Streamlit
+    
     if query:
         
         st.subheader("")
-        st.write("Preprocessing Query:")
+        st.write("Preprocessing Query :")
         display_preprocessed_query(query)
-
+        
         st.subheader("")
-        st.write("Preprocessing Tiap Dokumen:")
+        st.write("Preprocessing Tiap Dokumen :")
         display_preprocessed_documents(tokens)
-
+        
+        """Boolean"""
+        st.header("Boolean")
+        # index, indexed_files = B_build_index(documents)
+        # inverted_index_table = B_build_table(index)
+        # st.subheader("Inverted Index")
+        # st.table(inverted_index_table)
+        
+        """TF-IDF"""
+        st.header("TF - IDF")
+        st.write("TF-IDF Table query :")
+        tfidf_query = tfidf_display_query(documents, query, tokens)
+        
+        st.write("Documents sorted by weight:")
+        df_weight_sorted = pd.DataFrame({
+            'Dokumen': ['Dokumen ' + str(i + 1) for i in range(len(documents))],
+            'Sum Weight': [sum([tfidf_query['weight_d' + str(i + 1)][j] for j in range(len(tfidf_query))]) for i in range(D)]
+        })
+        st.dataframe(df_weight_sorted.sort_values(by=['Sum Weight'], ascending=False))
+        
         st.subheader("")
-        st.write("TF-IDF Table query")
-        tfidf_result = calculate_tfidf(documents, query, tokens, stopwords_id, stopwords_eng, sastrawi_stemmer, stemmer, lemmatizer)
-        st.table(tfidf_result)
-
+        st.write("TF-IDF Table Documents :")
+        tfidf_documents = tfidf_display_documents(documents, tokens)
+        
+        """VSM"""
+        st.header("VSM")
+        st.write("Results Calculation Distance between Document and Query :")
+        df_distance, sqrtq_distance, sqrtd_distance = vsm_distance(tfidf_documents)
+        
         st.subheader("")
-        st.write("Hasil perhitungan jarak Dokumen dengan Query")
-        df_distance, sqrtq_distance, sqrtd_distance = calculate_distance(tfidf_result)
-
+        st.write("Calculation of Space Vector Model :")
+        df_space_vector, sqrtq_svm, sqrtd_svm = svm_calculate(tfidf_documents,  df_distance, sqrtq_distance, sqrtd_distance)
+        
         st.subheader("")
-        st.write("Perhitungan Space Vector Model")
-        df_space_vector, sqrtq_svm, sqrtd_svm = calculate_svm(tfidf_result,  df_distance, sqrtq_distance, sqrtd_distance)
-
-        st.subheader("")
-        st.write("Perhitungan Cosine Similarity")
-        calculate_cosine(df_space_vector, sqrtq_svm, sqrtd_svm)
+        st.write("Calculation of Cosine Similarity :")
+        svm_calculate_cosine(df_space_vector, sqrtq_svm, sqrtd_svm)

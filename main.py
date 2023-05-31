@@ -1,5 +1,5 @@
-import sys
 import home
+import information_retrieval
 import boolean
 import TFIDF
 import VSM
@@ -19,14 +19,16 @@ hide_st_style = """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
 # Navigation Bar
-selected = option_menu(None, ["Home", "Boolean", "TF-IDF", 'VSM'], 
-    icons=['house', 'check-square', "file-earmark-bar-graph", 'bar-chart-line'], 
+selected = option_menu(None, ["Home", "Information Retrieval", "Boolean", "TF-IDF", 'VSM'], 
+    icons=['house', 'info-square', 'check-square', "file-earmark-bar-graph", 'bar-chart-line'], 
     menu_icon="cast", default_index=0, orientation="horizontal")
 
 st.title(selected)
 
 if selected == "Home":
   home.render_home()
+elif selected == "Information Retrieval":
+  information_retrieval.render_information_retrieval()
 elif selected == "Boolean":
   boolean.render_boolean()
 elif selected == "TF-IDF":
