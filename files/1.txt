@@ -1,0 +1,1 @@
+VSM (Vector Space Model) adalah salah satu metode yang digunakan dalam pengambilan informasi dan pemodelan bahasa untuk menganalisis dan merepresentasikan teks. Konsep dasar dari VSM adalah mengubah dokumen-dokumen teks menjadi representasi vektor dalam ruang multidimensi.

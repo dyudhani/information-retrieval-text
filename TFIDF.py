@@ -89,7 +89,6 @@ def render_tfidf():
             for token in tf[i]:
                 tfidf[i][token] = tf[i][token] * idf[token]
 
-
         # menyimpan hasil pada dataframe
         df_result = pd.DataFrame(columns=['Q'] + ['tf_d'+str(i+1) for i in range(D)] + ['df', 'D/df', 'IDF', 'IDF+1'] + ['weight_d'+str(i+1) for i in range(D)])
         for token in query.lower().split():

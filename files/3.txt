@@ -1,0 +1,2 @@
+Pada proses ini, matriks kejadian (incident matrix) digunakan untuk merepresentasikan hubungan antara dokumen dan term-term yang ada dalam koleksi. Sementara itu, inverted index (indeks terbalik) membantu dalam pengindeksan dan pencarian yang efisien dengan mengaitkan setiap term dengan dokumen-dokumen yang mengandung term tersebut
+
