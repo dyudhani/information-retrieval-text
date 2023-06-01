@@ -3,8 +3,9 @@ import re
 import pandas as pd
 import numpy as np
 import math
-# # import nltk
-# from nltk.tokenize import word_tokenize
+import nltk
+nltk.download('stopwords')
+from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from nltk.stem import PorterStemmer

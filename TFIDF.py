@@ -2,6 +2,8 @@ import streamlit as st
 import re
 import pandas as pd
 import math
+import nltk
+nltk.download('stopwords')
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
