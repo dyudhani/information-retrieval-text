@@ -529,22 +529,44 @@ def render_information_retrieval():
         display_preprocessed_query(query)
         
         st.subheader("")
-        st.write("Preprocessing Tiap Dokumen :")
+        st.write("Preprocessing Each Document :")
         display_preprocessed_documents(tokens)
         
         """Boolean"""
         st.header("Boolean")
-        # index, indexed_files = B_build_index(documents)
-        # inverted_index_table = B_build_table(index)
-        # st.subheader("Inverted Index")
-        # st.table(inverted_index_table)
+        index, indexed_files = B_build_index(documents)
+        inverted_index_table = B_build_table(index)
+        st.subheader("Inverted Index")
+        st.table(inverted_index_table)
+        
+        results_files = []
+        if query:
+            files = B_search(query, index, indexed_files)
+            results_files = [indexed_files[file_id] for file_id in files]
+
+        st.subheader("Incidence Matrix")
+        incidence_matrix_table_header = [
+            "Term"] + [file_name for file_name in indexed_files.values()]
+        incidence_matrix_table = B_build_table_incidence_matrix(index, indexed_files)
+        df_incidence_matrix_table = pd.DataFrame(
+            incidence_matrix_table, columns=incidence_matrix_table_header)
+        st.table(df_incidence_matrix_table)
+
+        if not results_files:
+            st.warning("No matching files")
+        else:
+            st.subheader("Results")
+            st.markdown(f"""
+                    Dokumen yang relevan dengan query adalah:
+                        **{', '.join(results_files)}**
+                    """)
         
         """TF-IDF"""
         st.header("TF - IDF")
-        st.write("TF-IDF Table query :")
+        st.write("TF-IDF Table Query :")
         tfidf_query = tfidf_display_query(documents, query, tokens)
         
-        st.write("Documents sorted by weight:")
+        st.write("Query Sorted by Weight:")
         df_weight_sorted = pd.DataFrame({
             'Dokumen': ['Dokumen ' + str(i + 1) for i in range(len(documents))],
             'Sum Weight': [sum([tfidf_query['weight_d' + str(i + 1)][j] for j in range(len(tfidf_query))]) for i in range(D)]
