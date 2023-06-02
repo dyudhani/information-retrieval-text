@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import math
 import nltk
-nltk.download('stopwords')
+# nltk.download('stopwords')
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
@@ -12,7 +12,7 @@ from nltk.stem import PorterStemmer
 from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
 
 def render_information_retrieval():
-  
+      
     st.markdown("""
     <style>
     table td:nth-child(1) {
@@ -525,67 +525,157 @@ def render_information_retrieval():
     if query:
         
         st.subheader("")
-        st.write("Preprocessing Query :")
-        display_preprocessed_query(query)
-        
-        st.subheader("")
-        st.write("Preprocessing Each Document :")
-        display_preprocessed_documents(tokens)
-        
-        """Boolean"""
-        st.header("Boolean")
-        index, indexed_files = B_build_index(documents)
-        inverted_index_table = B_build_table(index)
-        st.subheader("Inverted Index")
-        st.table(inverted_index_table)
-        
-        results_files = []
-        if query:
-            files = B_search(query, index, indexed_files)
-            results_files = [indexed_files[file_id] for file_id in files]
+        tab1, tab2, tab3, tab4 = st.tabs(["All", "Boolean", "TF-IDF", "VSM"])
+            
+        with tab1:
+            st.subheader("")
+            st.write("Preprocessing Query :")
+            display_preprocessed_query(query)
+            
+            st.subheader("")
+            st.write("Preprocessing Each Document :")
+            display_preprocessed_documents(tokens)
+            
+            """Boolean"""
+            st.header("Boolean")
+            index, indexed_files = B_build_index(documents)
+            inverted_index_table = B_build_table(index)
+            st.subheader("Inverted Index")
+            st.table(inverted_index_table)
+            
+            results_files = []
+            if query:
+                files = B_search(query, index, indexed_files)
+                results_files = [indexed_files[file_id] for file_id in files]
 
-        st.subheader("Incidence Matrix")
-        incidence_matrix_table_header = [
-            "Term"] + [file_name for file_name in indexed_files.values()]
-        incidence_matrix_table = B_build_table_incidence_matrix(index, indexed_files)
-        df_incidence_matrix_table = pd.DataFrame(
-            incidence_matrix_table, columns=incidence_matrix_table_header)
-        st.table(df_incidence_matrix_table)
+            st.subheader("Incidence Matrix")
+            incidence_matrix_table_header = [
+                "Term"] + [file_name for file_name in indexed_files.values()]
+            incidence_matrix_table = B_build_table_incidence_matrix(index, indexed_files)
+            df_incidence_matrix_table = pd.DataFrame(
+                incidence_matrix_table, columns=incidence_matrix_table_header)
+            st.table(df_incidence_matrix_table)
 
-        if not results_files:
-            st.warning("No matching files")
-        else:
-            st.subheader("Results")
-            st.markdown(f"""
-                    Dokumen yang relevan dengan query adalah:
-                        **{', '.join(results_files)}**
-                    """)
-        
-        """TF-IDF"""
-        st.header("TF - IDF")
-        st.write("TF-IDF Table Query :")
-        tfidf_query = tfidf_display_query(documents, query, tokens)
-        
-        st.write("Query Sorted by Weight:")
-        df_weight_sorted = pd.DataFrame({
-            'Dokumen': ['Dokumen ' + str(i + 1) for i in range(len(documents))],
-            'Sum Weight': [sum([tfidf_query['weight_d' + str(i + 1)][j] for j in range(len(tfidf_query))]) for i in range(D)]
-        })
-        st.dataframe(df_weight_sorted.sort_values(by=['Sum Weight'], ascending=False))
-        
-        st.subheader("")
-        st.write("TF-IDF Table Documents :")
-        tfidf_documents = tfidf_display_documents(documents, tokens)
-        
-        """VSM"""
-        st.header("VSM")
-        st.write("Results Calculation Distance between Document and Query :")
-        df_distance, sqrtq_distance, sqrtd_distance = vsm_distance(tfidf_documents)
-        
-        st.subheader("")
-        st.write("Calculation of Space Vector Model :")
-        df_space_vector, sqrtq_svm, sqrtd_svm = svm_calculate(tfidf_documents,  df_distance, sqrtq_distance, sqrtd_distance)
-        
-        st.subheader("")
-        st.write("Calculation of Cosine Similarity :")
-        svm_calculate_cosine(df_space_vector, sqrtq_svm, sqrtd_svm)
+            if not results_files:
+                st.warning("No matching files")
+            else:
+                st.subheader("Results")
+                st.markdown(f"""
+                        Dokumen yang relevan dengan query adalah:
+                            **{', '.join(results_files)}**
+                        """)
+            
+            """TF-IDF"""
+            st.header("TF - IDF")
+            st.write("TF-IDF Table Query :")
+            tfidf_query = tfidf_display_query(documents, query, tokens)
+            
+            st.write("Query Sorted by Weight:")
+            df_weight_sorted = pd.DataFrame({
+                'Dokumen': ['Dokumen ' + str(i + 1) for i in range(len(documents))],
+                'Sum Weight': [sum([tfidf_query['weight_d' + str(i + 1)][j] for j in range(len(tfidf_query))]) for i in range(D)]
+            })
+            st.dataframe(df_weight_sorted.sort_values(by=['Sum Weight'], ascending=False))
+            
+            st.subheader("")
+            st.write("TF-IDF Table Documents :")
+            tfidf_documents = tfidf_display_documents(documents, tokens)
+            
+            """VSM"""
+            st.header("VSM")
+            st.write("Results Calculation Distance between Document and Query :")
+            df_distance, sqrtq_distance, sqrtd_distance = vsm_distance(tfidf_documents)
+            
+            st.subheader("")
+            st.write("Calculation of Space Vector Model :")
+            df_space_vector, sqrtq_svm, sqrtd_svm = svm_calculate(tfidf_documents,  df_distance, sqrtq_distance, sqrtd_distance)
+            
+            st.subheader("")
+            st.write("Calculation of Cosine Similarity :")
+            svm_calculate_cosine(df_space_vector, sqrtq_svm, sqrtd_svm)
+            
+            
+        with tab2:
+            st.subheader("")
+            st.write("Preprocessing Query :")
+            display_preprocessed_query(query)
+            
+            st.subheader("")
+            st.write("Preprocessing Each Document :")
+            display_preprocessed_documents(tokens)
+            
+            """Boolean"""
+            st.header("Boolean")
+            index, indexed_files = B_build_index(documents)
+            inverted_index_table = B_build_table(index)
+            st.subheader("Inverted Index")
+            st.table(inverted_index_table)
+            
+            results_files = []
+            if query:
+                files = B_search(query, index, indexed_files)
+                results_files = [indexed_files[file_id] for file_id in files]
+
+            st.subheader("Incidence Matrix")
+            incidence_matrix_table_header = [
+                "Term"] + [file_name for file_name in indexed_files.values()]
+            incidence_matrix_table = B_build_table_incidence_matrix(index, indexed_files)
+            df_incidence_matrix_table = pd.DataFrame(
+                incidence_matrix_table, columns=incidence_matrix_table_header)
+            st.table(df_incidence_matrix_table)
+
+            if not results_files:
+                st.warning("No matching files")
+            else:
+                st.subheader("Results")
+                st.markdown(f"""
+                        Dokumen yang relevan dengan query adalah:
+                            **{', '.join(results_files)}**
+                        """)
+                
+        with tab3:
+            st.subheader("")
+            st.write("Preprocessing Query :")
+            display_preprocessed_query(query)
+            
+            st.subheader("")
+            st.write("Preprocessing Each Document :")
+            display_preprocessed_documents(tokens)
+            
+            """TF-IDF"""
+            st.header("TF - IDF")
+            st.write("TF-IDF Table Query :")
+            tfidf_query = tfidf_display_query(documents, query, tokens)
+            
+            st.write("Query Sorted by Weight:")
+            df_weight_sorted = pd.DataFrame({
+                'Dokumen': ['Dokumen ' + str(i + 1) for i in range(len(documents))],
+                'Sum Weight': [sum([tfidf_query['weight_d' + str(i + 1)][j] for j in range(len(tfidf_query))]) for i in range(D)]
+            })
+            st.dataframe(df_weight_sorted.sort_values(by=['Sum Weight'], ascending=False))
+            
+            st.subheader("")
+            st.write("TF-IDF Table Documents :")
+            tfidf_documents = tfidf_display_documents(documents, tokens)
+            
+        with tab4:
+            st.subheader("")
+            st.write("Preprocessing Query :")
+            display_preprocessed_query(query)
+            
+            st.subheader("")
+            st.write("Preprocessing Each Document :")
+            display_preprocessed_documents(tokens)
+            
+            """VSM"""
+            st.header("VSM")
+            st.write("Results Calculation Distance between Document and Query :")
+            df_distance, sqrtq_distance, sqrtd_distance = vsm_distance(tfidf_documents)
+            
+            st.subheader("")
+            st.write("Calculation of Space Vector Model :")
+            df_space_vector, sqrtq_svm, sqrtd_svm = svm_calculate(tfidf_documents,  df_distance, sqrtq_distance, sqrtd_distance)
+            
+            st.subheader("")
+            st.write("Calculation of Cosine Similarity :")
+            svm_calculate_cosine(df_space_vector, sqrtq_svm, sqrtd_svm)
