@@ -1,8 +1,8 @@
 import home
 import information_retrieval
-import boolean
-import TFIDF
-import VSM
+# import boolean
+# import TFIDF
+# import VSM
 import streamlit as st
 from streamlit_option_menu import option_menu
 
@@ -22,7 +22,7 @@ st.markdown(hide_st_style, unsafe_allow_html=True)
 # selected = option_menu(None, ["Home", "Information Retrieval", "Boolean", "TF-IDF", 'VSM'], 
 #     icons=['house', 'info-square', 'check-square', "file-earmark-bar-graph", 'bar-chart-line'], 
 #     menu_icon="cast", default_index=0, orientation="horizontal")
-selected = option_menu(None, ["Home", "Information Retrieval", "Boolean"], 
+selected = option_menu(None, ["Home", "Information Retrieval"], 
     icons=['house', 'info-square', 'check-square'], 
     menu_icon="cast", default_index=0, orientation="horizontal")
 
@@ -32,8 +32,8 @@ if selected == "Home":
   home.render_home()
 elif selected == "Information Retrieval":
   information_retrieval.render_information_retrieval()
-elif selected == "Boolean":
-  boolean.render_boolean()
+# elif selected == "Boolean":
+#   boolean.render_boolean()
 # elif selected == "TF-IDF":
 #   TFIDF.render_tfidf()
 # elif selected == "VSM":

@@ -524,8 +524,8 @@ def render_information_retrieval():
     
     if query:
         
-        st.subheader("")
-        tab1, tab2, tab3, tab4 = st.tabs(["All", "Boolean", "TF-IDF", "VSM"])
+        st.write("")
+        tab1, tab2, tab3, tab4 = st.tabs(["All Methods", "Boolean", "TF-IDF", "VSM"])
             
         with tab1:
             st.subheader("")
