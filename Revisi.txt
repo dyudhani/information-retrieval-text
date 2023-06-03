@@ -1,0 +1,4 @@
+Revisi: 
+- benarkan rumus boolean
+- Tambah kolom untuk teks dokumen
+- Tambah alert pada saat upload lebih dari 200mb
