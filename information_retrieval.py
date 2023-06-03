@@ -569,12 +569,12 @@ def render_information_retrieval():
             """TF-IDF"""
             st.header("TF - IDF")
             st.write("TF-IDF Table Query :")
-            tfidf_query = tfidf_display_query(documents, query, tokens)
+            tab1_tfidf_query = tfidf_display_query(documents, query, tokens)
             
             st.write("Query Sorted by Weight:")
             df_weight_sorted = pd.DataFrame({
                 'Dokumen': ['Dokumen ' + str(i + 1) for i in range(len(documents))],
-                'Sum Weight': [sum([tfidf_query['weight_d' + str(i + 1)][j] for j in range(len(tfidf_query))]) for i in range(D)]
+                'Sum Weight': [sum([tab1_tfidf_query['weight_d' + str(i + 1)][j] for j in range(len(tab1_tfidf_query))]) for i in range(D)]
             })
             st.dataframe(df_weight_sorted.sort_values(by=['Sum Weight'], ascending=False))
             
@@ -646,12 +646,12 @@ def render_information_retrieval():
             """TF-IDF"""
             st.header("TF - IDF")
             st.write("TF-IDF Table Query :")
-            tfidf_query = tfidf_display_query(documents, query, tokens)
+            tab3_tfidf_query = tfidf_display_query(documents, query, tokens)
             
             st.write("Query Sorted by Weight:")
             df_weight_sorted = pd.DataFrame({
                 'Dokumen': ['Dokumen ' + str(i + 1) for i in range(len(documents))],
-                'Sum Weight': [sum([tfidf_query['weight_d' + str(i + 1)][j] for j in range(len(tfidf_query))]) for i in range(D)]
+                'Sum Weight': [sum([tab3_tfidf_query['weight_d' + str(i + 1)][j] for j in range(len(tab3_tfidf_query))]) for i in range(D)]
             })
             st.dataframe(df_weight_sorted.sort_values(by=['Sum Weight'], ascending=False))
             
