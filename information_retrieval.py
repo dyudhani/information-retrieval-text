@@ -4,13 +4,14 @@ import pandas as pd
 import numpy as np
 import math
 import nltk
-nltk.download('stopwords')
-nltk.download('punkt')
+# nltk.download('stopwords')
+# nltk.download('punkt')
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from nltk.stem import PorterStemmer
 from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
+from PyPDF2 import PdfReader
 
 def render_information_retrieval():
       
@@ -38,63 +39,74 @@ def render_information_retrieval():
 
     def remove_special_characters(text):
         regex = re.compile('[^a-zA-Z0-9\s]')
-        text_returned = re.sub(regex, '', text)
+        text_returned = re.sub(regex, '', str(text))
         return text_returned
 
 
-    def preprocess(text, use_stopword, stop_language, stem_or_lem):
+    def preprocess(text):
         text = text.lower()
         text = remove_special_characters(text)
         text = re.sub(re.compile('\d'), '', text)
+        words = word_tokenize(text)
         
         if use_stopword == True:
             if stop_language == "Indonesia":
-                text = ' '.join([word for word in text.split() if word not in stopwords_id])
+                words = [word.lower() for word in words if word not in stopwords_id]
             else:
-                text = ' '.join([word for word in text.split() if word not in stopwords_eng])
+                words = [word.lower() for word in words if word not in stopwords_eng]
                 
         if stem_or_lem == "Stemming":
             if stop_language == "Indonesia":
-                text = ' '.join([sastrawi_stemmer.stem(word) for word in text.split()])
+                words = [sastrawi_stemmer.stem(word) for word in words ]
             else:
-                text = ' '.join([stemmer.stem(word) for word in text.split()])
+                words = [stemmer.stem(word) for word in words]
                 
         elif stem_or_lem == "Lemmatization":
-            text = ' '.join([lemmatizer.lemmatize(word) for word in text.split()])
-        return text
+            words = [lemmatizer.lemmatize(word) for word in words]
+        return words
     
     def display_preprocessed_query(query):
         df_query = pd.DataFrame({
-            'Query': [query.split()]
+            'Query': [query]
         })
         st.table(df_query)
         
     def display_preprocessed_documents(tokens):
-        D = len(documents) + 1
         df_token = pd.DataFrame({
-            'Dokumen': ['Query']+['Dokumen '+str(i) for i in range(1, D)],
+            'Dokumen': ['Dokumen '+str(i+1) for i in range(D)],
             'Token': tokens
         })
         st.table(df_token)
+        
+    def display_preprocessed_documents_vsm(tokens):
+        D = len(documents) + 1
+        df_token = pd.DataFrame({
+            'Dokumen': ['Query'] + ['Dokumen ' + str(i) for i in range(1, D)],
+            'Token': tokens
+        })
+        st.table(df_token)
+        
     
     """ Boolean Function """
-    def B__unique_words_and_freq(words):
+    def B_unique_words_and_freq(words):
         word_freq = {}
         for word in words:
             word_freq[word] = words.count(word)
         return word_freq
-
-    def B_build_index(text_list):
+    
+    def B_build_index(text_list, use_stopword, stop_language, stem_or_lem):
         idx = 1
         indexed_files = {}
         index = {}
         for text in text_list:
-            words = preprocess(text, stop_language, use_stopword, stem_or_lem)
+            words = preprocess(text)
             indexed_files[idx] = f"dokumen{idx}"
-            for word, freq in B__unique_words_and_freq(words).items():
+            for word, freq in B_unique_words_and_freq(words).items():
                 if word not in index:
                     index[word] = {}
-                index[word][idx] = freq
+                if idx not in index[word]:
+                    index[word][idx] = 0
+                index[word][idx] += 1
             idx += 1
         return index, indexed_files
 
@@ -104,7 +116,7 @@ def render_information_retrieval():
             row = [key, val]
             rows.append(row)
         return rows
-
+    
     def B_build_table_incidence_matrix(data, indexed_files):
         rows = []
         for key, val in data.items():
@@ -116,7 +128,28 @@ def render_information_retrieval():
                     row.append("0")
             rows.append(row)
         return rows
-
+    # def B_build_table_incidence_matrix(data, indexed_files):
+    #     rows = []
+    #     for key, val in data.items():
+    #         row = []
+    #         for file_id, file_name in indexed_files.items(): 
+    #             row = [key]  
+    #             if file_id in val:
+    #                 row.append([key, file_id, "1"])
+    #             else:
+    #                 row.append([key, file_id, "0"])
+    #             rows.append(row)
+        # for file_id, file_name in indexed_files.items():
+        #     for word in words:
+        #         found = False
+        #         for row in rows:
+        #             if row[0] == word and row[1] == file_id:
+        #                 found = True
+        #                 break
+        #         if not found:
+        #             rows.append([word, file_id, "0"])
+        return rows
+    
     def B_search(query_words, index, indexed_files):
         connecting_words = []
         different_words = []
@@ -195,7 +228,7 @@ def render_information_retrieval():
 
         # menyimpan hasil pada dataframe
         df_result = pd.DataFrame(columns=['Q'] + ['tf_d'+str(i+1) for i in range(D)] + ['df', 'D/df', 'IDF', 'IDF+1'] + ['weight_d'+str(i+1) for i in range(D)])
-        for token in query.lower().split():
+        for token in query:
             row = {'Q': token}
             for i in range(D):
                 # tf_i
@@ -240,14 +273,10 @@ def render_information_retrieval():
         
         return df_result
     
-    def tfidf_display_documents(documents, tokens):   
+    """ VSM Function """
+    
+    def vsm_tfidf_query(documents, tokens):   
         
-        lexicon = []
-        for token in tokens:
-            for word in token:
-                if word not in lexicon:
-                    lexicon.append(word)
-                    
         # menghitung df dan menghitung idf
         df = {}
         D = len(documents) + 1
@@ -258,7 +287,7 @@ def render_information_retrieval():
                 else:
                     df[token] += 1
 
-        idf = {token: math.log10(D/ (1 + df[token])) for token in df}
+        idf = {token: math.log10(D/df[token]) for token in df}
 
         # menghitung tf
         tf = []
@@ -270,68 +299,20 @@ def render_information_retrieval():
                 else:
                     tf[i][token] += 1
 
-
-        # menghitung bobot tf-idf weight
+        # menghitung bobot tf-idf
         tfidf = []
         for i in range(D):
             tfidf.append({})
             for token in tf[i]:
                 tfidf[i][token] = tf[i][token] * idf[token]
 
+        def unique(list1):
+            x = np.array(list1)
+            return np.unique(x)
+
         # menyimpan hasil pada dataframe
-        df_result = pd.DataFrame(columns=['token'] + ['tf_Q'] + ['tf_d'+str(i) for i in range(1, D)] + [ 'df', 'D/df', 'IDF', 'IDF+1'] + ['weight_Q'] + ['weight_d'+str(i) for i in range(1, D)])
-        
-        # for token in lexicon:
-        #     row = {'token': token}
-        #     if token in tf[0]:
-        #         row['tf_Q'] = tf[0][token]
-        #     else:
-        #         row['tf_Q'] = 0
-
-        #     if token in tfidf[0]:
-        #         row['weight_Q'] = tfidf[0][token]
-        #     else:
-        #         row['weight_Q'] = 0
-            
-        #     for i in range(1, D):
-        #         # tf_i
-        #         if token in tf[i]:
-        #             row['tf_d'+str(i)] = tf[i][token]
-        #         else:
-        #             row['tf_d'+str(i)] = 0
-        #         # weight_i
-        #         if token in tfidf[i]:
-        #             row['weight_d'+str(i)] = tfidf[i][token] + 1
-        #         else:
-        #             row['weight_d'+str(i)] = 0
-        #     # df
-        #     if token in df:
-        #         df_ = df[token]
-        #     else:
-        #         df_ = 0
-
-        #     # D/df
-        #     if df_ > 0:
-        #         D_df = D / df_
-        #     else:
-        #         D_df = 0
-
-        #     # IDF
-        #     if token in idf:
-        #         IDF = idf[token]
-        #     else:
-        #         IDF = 0
-
-        #     # IDF+1
-        #     IDF_1 = IDF + 1
-        #     row['df'] = df_
-        #     row['D/df'] = D_df
-        #     row['IDF'] = IDF
-        #     row['IDF+1'] = IDF_1
-
-        #     df_result = pd.concat(
-        #         [df_result, pd.DataFrame(row, index=[0])], ignore_index=True)
-        
+        df_result = pd.DataFrame(columns=['token'] + ['tf_Q'] + ['tf_d'+str(i) for i in range(1, D)] + [
+            'df', 'D/df', 'IDF', 'IDF+1'] + ['weight_Q'] + ['weight_d'+str(i) for i in range(1, D)])
         for token in lexicon:
             row = {'token': token}
             if token in tf[0]:
@@ -386,175 +367,143 @@ def render_information_retrieval():
         st.table(df_result)
 
         return df_result
-    
-    """ VSM Function """
-    def vsm_distance(df_result):
+
+    def vsm_distance(df_result, lexicon):
+        
         D = len(documents) + 1
 
-        df_distance = pd.DataFrame(columns=['Token'] + ['Q' + chr(178)] + ['D' + str(i) + chr(178) for i in range(1, D)])
+        df_distance = pd.DataFrame(
+            columns=['Token'] + ['Q' + chr(178)] + ['D'+str(i) + chr(178) for i in range(1, D)])
         df_distance['Token'] = lexicon
         df_distance['Q' + chr(178)] = df_result['weight_Q'] ** 2
-
         for i in range(1, D):
-            df_distance['D' + str(i) + chr(178)] = df_result['weight_d' + str(i)] ** 2
+            df_distance['D'+str(i) + chr(178)
+                        ] = df_result['weight_d'+str(i)] ** 2
         st.table(df_distance)
-
         sqrt_q = round(math.sqrt(df_distance['Q' + chr(178)].sum()), 4)
-
         sqrt_d = []
         for i in range(1, D):
-            sqrt_d.append(round(math.sqrt(df_distance['D' + str(i) + chr(178)].sum()), 4))
-
-        st.latex(r'''Sqrt(Q)= ''' + str(sqrt_q) + r''' ''')
+            sqrt_d.append(
+                round(math.sqrt(df_distance['D'+str(i) + chr(178)].sum()), 4))
 
         for i in range(1, D):
-            st.latex(r'''Sqrt(D''' + str(i) + r''')= \sqrt{(''' + '+'.join(
-                [str(round(key, 4)) for key in list(df_distance['D' + str(i) + chr(178)])]) + ''')}= ''' + str(
-                sqrt_d[i - 1]) + r''' ''')
+            st.latex(
+                r'''Sqrt(D''' + str(i) + r''')= \sqrt{(''' + '+'.join(
+                    [str(round(key, 4)) for key in list(df_distance['D' + str(i) + chr(178)])]) + ''')}= ''' + str(sqrt_d[i-1]) + r''' '''
+            )
 
         sqrtq_distance = sqrt_q
         sqrtd_distance = sqrt_d
 
-        return df_distance, sqrtq_distance, sqrtd_distance
+        return sqrtq_distance, sqrtd_distance
     
-    def svm_calculate(df_result,  df_distance, sqrt_q, sqrt_d):
+    def vsm_calculate(df_result, lexicon, sqrt_q, sqrt_d):
         
         D = len(documents) + 1
         
-        for i in range(1, D):
-            sqrt_d.append( round(math.sqrt(df_distance['D'+str(i) + chr(178)].sum()), 4))
-        
-        df_space_vector = pd.DataFrame(
-        columns= ['Token'] + ['Q' + chr(178)] + ['D'+str(i) + chr(178) for i in range(1, D)] + ['Q*D'+str(i) for i in range(1, D)])
+        df_space_vector = pd.DataFrame( columns=['Token'] + ['Q' + chr(178)] + ['D'+str(i) + chr(178) for i in range(1, D)] + ['Q*D'+str(i) for i in range(1, D)])
         df_space_vector['Token'] = lexicon
         df_space_vector['Q' + chr(178)] = df_result['weight_Q'] ** 2
-        
         for i in range(1, D):
-            df_space_vector['D'+str(i) + chr(178) ] = df_result['weight_d'+str(i)] ** 2
-        
+            df_space_vector['D'+str(i) + chr(178)] = df_result['weight_d'+str(i)] ** 2
         for i in range(1, D):
             for j in range(len(df_space_vector)):
                 df_space_vector['Q*D'+str(i)][j] = df_space_vector['Q' + chr(178)][j] * df_space_vector['D'+str(i) + chr(178)][j]
-        
         st.table(df_space_vector)
-        
         for i in range(1, D):
-            st.latex( r'''SUM(Q \cdot D ''' + str(i) + r''') = ''' + str(round(df_space_vector['Q*D' + str(i)].sum(), 4)) + r''' ''' )
+            st.latex(r'''Q \cdot D''' + str(i) + r''' = ''' + str(round(df_space_vector['Q*D' + str(i)].sum(), 4)) + r''' ''')
             
-        sqrtq_svm = sqrt_q
-        sqrtd_svm = sqrt_d
+        sqrtq_vsm = sqrt_q
+        sqrtd_vsm = sqrt_d
         
-        return df_space_vector, sqrtq_svm, sqrtd_svm
+        return df_space_vector, sqrtq_vsm, sqrtd_vsm
     
-    def svm_calculate_cosine(df_space_vector, sqrt_q, sqrt_d):
+    def vsm_calculate_cosine(df_space_vector, sqrt_q, sqrt_d):
+        
         D = len(documents) + 1
         
-        # df_cosine = pd.DataFrame(index=['Cosine'], columns=['D'+str(i) for i in range(1, D)])
-        # for i in range(1, D):
-        #     st.latex(
-        #         r'''Cosine\;\theta_{D''' + str(i) + r'''}=\frac{''' + str(round(df_space_vector['Q*D' + str(i)].sum(), 4)) + '''}{''' + str(sqrt_q) + ''' * ''' + str(sqrt_d[i-1]) + '''}= ''' + str(round(df_space_vector['Q*D' + str(i)].sum() / (sqrt_q * sqrt_d[i-1]), 4)) + r'''''')
-            
-        #     df_cosine['D'+str(i)] = df_space_vector['Q*D' + str(i)].sum() / (sqrt_q * sqrt_d[i-1])
-            
-        # st.table(df_cosine)
-        
-        cosine_values = []
-        
-        df_cosine = pd.DataFrame(index=['Cosine'], columns=['D'+str(i) for i in range(1, D)])
-        
+        df_cosine = pd.DataFrame(index=['Cosine'], columns=[
+                'D'+str(i) for i in range(1, D)])
         for i in range(1, D):
             st.latex(
                 r'''Cosine\;\theta_{D''' + str(i) + r'''}=\frac{''' + str(round(df_space_vector['Q*D' + str(i)].sum(), 4)) + '''}{''' + str(sqrt_q) + ''' * ''' + str(sqrt_d[i-1]) + '''}= ''' + str(round(df_space_vector['Q*D' + str(i)].sum() / (sqrt_q * sqrt_d[i-1]), 4)) + r'''''')
-            
             df_cosine['D'+str(i)] = df_space_vector['Q*D' + str(i)].sum() / (sqrt_q * sqrt_d[i-1])
-            
-        for i in range(1, D):
-            cosine_value = df_space_vector['Q*D' + str(i)].sum() / (sqrt_q * sqrt_d[i-1])
-            cosine_values.append(cosine_value)
-
-        sorted_indices = np.argsort(cosine_values)[::-1]
-        ranked_documents = ['D' + str(i+1) for i in sorted_indices]
-
-        df_cosine = pd.DataFrame(data=[cosine_values], columns=ranked_documents, index=['Cosine'])
-        st.table(df_cosine)
-
-        st.write("Ranking based on Cosine Similarity :")
-        for rank, document in enumerate(ranked_documents):
-            st.write(f"Rank {rank+1}: {document}")
+        
+        return df_cosine
     
     """"""""""""""""""""""""""""""""""""
-    
-    stop_language = st.selectbox("Stopwords Language", ("Indonesia", "English"))
-    use_stopword = st.checkbox("Stopword Removal", value=True)
+    st.subheader("Pre-Process")
+    use_stopword = st.checkbox("Use Stopword?")
+    if use_stopword:
+        stop_language = st.radio("Pilih Bahasa Stopword", ("Inggris", "Indonesia"))
+    else:
+        stop_language = None
+        
     stem_or_lem = st.selectbox("Stemming/Lemmatization", ("Stemming", "Lemmatization"))
     
+    st.subheader("Document")
     select_documents = st.selectbox("Choose File or Text", ("Files", "Texts"))
     
     documents = []
     
     if select_documents == "Files":
+
+        MAX_FILE_SIZE = 200 * 1024 * 1024  # 200 MB
+        ALLOWED_EXTENSIONS = ['.csv','.txt']
+
         files = st.file_uploader("Upload one or more files", accept_multiple_files=True)
         documents = []
+        # Check file size and allowed extensions before reading content
         for file in files:
-            content = file.read()
-            if file.name.endswith('.csv'):
-                df = pd.read_csv(file)
-                documents.extend(df.iloc[:, 0].tolist())
+            if file.size > MAX_FILE_SIZE:
+                st.error(f"File {file.name} exceeds the maximum size limit of 200 MB.")
+            elif not any(file.name.endswith(ext) for ext in ALLOWED_EXTENSIONS):
+                st.error(f"Invalid file type. Only CSV, and TXT files are allowed.")
             else:
-                documents.append(content.decode("utf-8"))
+                content = file.read()
+                if file.name.endswith('.csv'):
+                    df = pd.read_csv(file)
+                    documents.extend(df.iloc[:, 0].tolist())
+                elif file.name.endswith('.txt'):
+                    documents.append(content.decode("utf-8"))
                     
     elif select_documents == "Texts":
-        text_area = st.text_area("Enter Your Documents : ").split()
-        documents.extend(text_area)
+        # text_area = st.text_area("Enter Your Documents : ").split()
+        # documents.extend(text_area)
+        num_documents = st.number_input("Number of Documents to Add", value=1, min_value=1, step=1)
+        for i in range(num_documents):
+            text_area = st.text_area(f"Enter Your Document {i+1}")
+            documents.append(text_area)
         
-    documents = [preprocess(doc, use_stopword, stop_language, stem_or_lem) for doc in documents]
+    documents
 
+    st.subheader("Query")
     query = st.text_input('Enter your query :')
-    query = preprocess(query, use_stopword, stop_language, stem_or_lem)
-                
-    # tokenisasi
-    tokens = [query.split()] + [doc.lower().split() for doc in documents]
-    
-    D = len(documents)
-    
-    lexicon = []
-    for token in tokens:
-        for word in token:
-            if word not in lexicon:
-                lexicon.append(word)
-    
-    if query:
         
-        st.write("")
-        tab1, tab2, tab3, tab4 = st.tabs(["All Methods", "Boolean", "TF-IDF", "VSM"])
-            
-        with tab1:
-            st.subheader("")
-            st.write("Preprocessing Query :")
-            display_preprocessed_query(query)
-            
-            st.subheader("")
-            st.write("Preprocessing Each Document :")
-            display_preprocessed_documents(tokens)
-            
-            """Boolean"""
+    st.subheader("Result")
+    tab1, tab2, tab3 = st.tabs(["Boolean", "TF-IDF", "VSM"])
+        
+    with tab1:
+        """Boolean"""
+        if query:
             st.header("Boolean")
-            index, indexed_files = B_build_index(documents)
+            index, indexed_files = B_build_index(documents, use_stopword, stop_language, stem_or_lem)
             inverted_index_table = B_build_table(index)
+            query_words = word_tokenize(query)
+            
             st.subheader("Inverted Index")
+            inverted_index_table = pd.DataFrame(inverted_index_table, columns=["Term", "Posting List"])
             st.table(inverted_index_table)
             
             results_files = []
             if query:
-                files = B_search(query, index, indexed_files)
+                files = B_search(query_words, index, indexed_files)
                 results_files = [indexed_files[file_id] for file_id in files]
 
             st.subheader("Incidence Matrix")
-            incidence_matrix_table_header = [
-                "Term"] + [file_name for file_name in indexed_files.values()]
+            incidence_matrix_table_header = ["Term"] + [file_name for file_name in indexed_files.values()]
             incidence_matrix_table = B_build_table_incidence_matrix(index, indexed_files)
-            df_incidence_matrix_table = pd.DataFrame(
-                incidence_matrix_table, columns=incidence_matrix_table_header)
+            df_incidence_matrix_table = pd.DataFrame( incidence_matrix_table, columns=incidence_matrix_table_header)
             st.table(df_incidence_matrix_table)
 
             if not results_files:
@@ -562,121 +511,82 @@ def render_information_retrieval():
             else:
                 st.subheader("Results")
                 st.markdown(f"""
-                        Dokumen yang relevan dengan query adalah:
+                        Documents relevant to the query are :
                             **{', '.join(results_files)}**
                         """)
+    
+    with tab2:
+        """TF-IDF"""
+        if query:
+            documents = [preprocess(doc) for doc in documents]
+            query = preprocess(query)
+            tokens = [doc for doc in documents]
+            df = {}
+            D = len(documents)
             
-            """TF-IDF"""
             st.header("TF - IDF")
+            st.write("Preprocessing Query :")
+            display_preprocessed_query(query)
+            
+            st.subheader("")
+            st.write("Preprocessing Each Document :")
+            display_preprocessed_documents(tokens)
+        
             st.write("TF-IDF Table Query :")
-            tab1_tfidf_query = tfidf_display_query(documents, query, tokens)
+            tfidf_query = tfidf_display_query(documents, query, tokens)
             
-            st.write("Query Sorted by Weight:")
+            st.write("Rank Based On Weight :")
             df_weight_sorted = pd.DataFrame({
-                'Dokumen': ['Dokumen ' + str(i + 1) for i in range(len(documents))],
-                'Sum Weight': [sum([tab1_tfidf_query['weight_d' + str(i + 1)][j] for j in range(len(tab1_tfidf_query))]) for i in range(D)]
+                'Document': ['Document '+str(i+1) for i in range(D)],
+                'Sum Weight': [sum([tfidf_query['weight_d'+str(i+1)][j] for j in range(len(tfidf_query))]) for i in range(D)]
             })
-            st.dataframe(df_weight_sorted.sort_values(by=['Sum Weight'], ascending=False))
+            df_weight_sorted['Rank'] = df_weight_sorted['Sum Weight'].rank(ascending=False).astype(int)
             
-            st.subheader("")
-            st.write("TF-IDF Table Documents :")
-            tfidf_documents = tfidf_display_documents(documents, tokens)
-            
-            """VSM"""
+            st.table(df_weight_sorted.sort_values( by=['Sum Weight'], ascending=False))
+        
+    with tab3:
+        """VSM"""
+        # tokenisasi
+        tokens = [query] + [doc for doc in documents]
+        lexicon = []
+        for token in tokens:
+            for word in token:
+                if word not in lexicon:
+                    lexicon.append(word)
+
+        # menampilkan output pada Streamlit
+        if query:
             st.header("VSM")
-            st.write("Results Calculation Distance between Document and Query :")
-            df_distance, sqrtq_distance, sqrtd_distance = vsm_distance(tfidf_documents)
+            st.write("Preprocessing Query :")
+            df_query = pd.DataFrame({
+                'Query': [query]
+            })
+            st.table(df_query.round(2))
+
+            st.write("Preprocessing Each Documents :")
+            display_preprocessed_documents_vsm(tokens)
+
+            st.write("TF-IDF Table query :")
+            df_result = vsm_tfidf_query(documents, tokens)
+
+            st.write("Calculation Distance Document and Query :")
+            sqrtq_distance, sqrtd_distance = vsm_distance(df_result, lexicon)
             
-            st.subheader("")
-            st.write("Calculation of Space Vector Model :")
-            df_space_vector, sqrtq_svm, sqrtd_svm = svm_calculate(tfidf_documents,  df_distance, sqrtq_distance, sqrtd_distance)
-            
-            st.subheader("")
+            st.write("")
+            st.write("Calculation of Vector Space Model :")
+            df_space_vector, sqrtq_vsm, sqrtd_vsm = vsm_calculate(df_result, lexicon, sqrtq_distance, sqrtd_distance)
+
             st.write("Calculation of Cosine Similarity :")
-            svm_calculate_cosine(df_space_vector, sqrtq_svm, sqrtd_svm)
+            df_cosine = vsm_calculate_cosine(df_space_vector, sqrtq_vsm, sqrtd_vsm)
             
-            
-        with tab2:
-            st.subheader("")
-            st.write("Preprocessing Query :")
-            display_preprocessed_query(query)
-            
-            st.subheader("")
-            st.write("Preprocessing Each Document :")
-            display_preprocessed_documents(tokens)
-            
-            """Boolean"""
-            st.header("Boolean")
-            index, indexed_files = B_build_index(documents)
-            inverted_index_table = B_build_table(index)
-            st.subheader("Inverted Index")
-            st.table(inverted_index_table)
-            
-            results_files = []
-            if query:
-                files = B_search(query, index, indexed_files)
-                results_files = [indexed_files[file_id] for file_id in files]
-
-            st.subheader("Incidence Matrix")
-            incidence_matrix_table_header = [
-                "Term"] + [file_name for file_name in indexed_files.values()]
-            incidence_matrix_table = B_build_table_incidence_matrix(index, indexed_files)
-            df_incidence_matrix_table = pd.DataFrame(
-                incidence_matrix_table, columns=incidence_matrix_table_header)
-            st.table(df_incidence_matrix_table)
-
-            if not results_files:
-                st.warning("No matching files")
-            else:
-                st.subheader("Results")
-                st.markdown(f"""
-                        Dokumen yang relevan dengan query adalah:
-                            **{', '.join(results_files)}**
-                        """)
-                
-        with tab3:
-            st.subheader("")
-            st.write("Preprocessing Query :")
-            display_preprocessed_query(query)
-            
-            st.subheader("")
-            st.write("Preprocessing Each Document :")
-            display_preprocessed_documents(tokens)
-            
-            """TF-IDF"""
-            st.header("TF - IDF")
-            st.write("TF-IDF Table Query :")
-            tab3_tfidf_query = tfidf_display_query(documents, query, tokens)
-            
-            st.write("Query Sorted by Weight:")
+            st.write("Rank Based On Cosine Similarity :")
             df_weight_sorted = pd.DataFrame({
-                'Dokumen': ['Dokumen ' + str(i + 1) for i in range(len(documents))],
-                'Sum Weight': [sum([tab3_tfidf_query['weight_d' + str(i + 1)][j] for j in range(len(tab3_tfidf_query))]) for i in range(D)]
+                'Dokumen': ['Dokumen '+str(i+1) for i in range(D)],
             })
-            st.dataframe(df_weight_sorted.sort_values(by=['Sum Weight'], ascending=False))
             
-            st.subheader("")
-            st.write("TF-IDF Table Documents :")
-            tfidf_documents = tfidf_display_documents(documents, tokens)
+            # Menggabungkan hasil cosine dengan dataframe df_weight_sorted
+            df_weight_sorted['Cosine'] = df_cosine.iloc[0].values
             
-        with tab4:
-            st.subheader("")
-            st.write("Preprocessing Query :")
-            display_preprocessed_query(query)
-            
-            st.subheader("")
-            st.write("Preprocessing Each Document :")
-            display_preprocessed_documents(tokens)
-            
-            """VSM"""
-            st.header("VSM")
-            st.write("Results Calculation Distance between Document and Query :")
-            df_distance, sqrtq_distance, sqrtd_distance = vsm_distance(tfidf_documents)
-            
-            st.subheader("")
-            st.write("Calculation of Space Vector Model :")
-            df_space_vector, sqrtq_svm, sqrtd_svm = svm_calculate(tfidf_documents,  df_distance, sqrtq_distance, sqrtd_distance)
-            
-            st.subheader("")
-            st.write("Calculation of Cosine Similarity :")
-            svm_calculate_cosine(df_space_vector, sqrtq_svm, sqrtd_svm)
+            df_weight_sorted['Rank'] = df_weight_sorted['Cosine'].rank(ascending=False).astype(int)
+
+            st.table(df_weight_sorted.sort_values(by=['Cosine'], ascending=False))

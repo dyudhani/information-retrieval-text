@@ -1,4 +1,5 @@
 import home
+import inforetri
 import information_retrieval
 # import boolean
 # import TFIDF
@@ -31,7 +32,9 @@ st.title(selected)
 if selected == "Home":
   home.render_home()
 elif selected == "Information Retrieval":
+  # inforetri.render_inforetri()
   information_retrieval.render_information_retrieval()
+  
 # elif selected == "Boolean":
 #   boolean.render_boolean()
 # elif selected == "TF-IDF":
