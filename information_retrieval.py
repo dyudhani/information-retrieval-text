@@ -194,20 +194,12 @@ def render_information_retrieval():
     
     """ TF-IDF Function """
     def tfidf_display_query(documents, query, tokens):
-        
-        # menghitung df dan menghitung idf
-        df = {}
+
         D = len(documents)
+
+        # menyimpan hasil pada dataframe
+        df_result = pd.DataFrame(columns=['Q'] + ['tf_d'+str(i+1) for i in range(D)] + ['df', 'D/df', 'IDF', 'IDF+1'] + ['weight_d'+str(i+1) for i in range(D)])
         
-        for i in range(D):
-            for token in set(tokens[i]):
-                if token not in df:
-                    df[token] = 1
-                else:
-                    df[token] += 1
-
-        idf = {token: math.log10(D/df[token]) for token in df}
-
         # menghitung tf
         tf = []
         for i in range(D):
@@ -218,18 +210,50 @@ def render_information_retrieval():
                 else:
                     tf[i][token] += 1
 
+        # menghitung df
+        df = {}
+        for i in range(D):
+            for token in set(tokens[i]):
+                if token not in df:
+                    df[token] = 1
+                else:
+                    df[token] += 1
 
-        # menghitung bobot tf-idf
+        # menghitung IDF
+        idf = {token: math.log10(D/df[token]) for token in df}
+
+        # menghitung weight
         tfidf = []
         for i in range(D):
             tfidf.append({})
             for token in tf[i]:
-                tfidf[i][token] = tf[i][token] * idf[token]
+                tfidf[i][token] = tf[i][token] * (idf[token] + 1)
 
-        # menyimpan hasil pada dataframe
-        df_result = pd.DataFrame(columns=['Q'] + ['tf_d'+str(i+1) for i in range(D)] + ['df', 'D/df', 'IDF', 'IDF+1'] + ['weight_d'+str(i+1) for i in range(D)])
+        #menampilkan data pada kolom
         for token in query:
             row = {'Q': token}
+
+            #df
+            if token in df:
+                df_ = df[token]
+            else:
+                df_ = 0
+            
+            # D/df
+            if df_ > 0:
+                D_df = D / df_
+            else:
+                D_df = 0
+            
+            #IDF
+            if token in idf:
+                IDF = idf[token]
+            else:
+                IDF = 0
+            
+            # IDF+1
+            IDF_1 = IDF + 1
+
             for i in range(D):
                 # tf_i
                 if token in tf[i]:
@@ -238,29 +262,9 @@ def render_information_retrieval():
                     row['tf_d'+str(i+1)] = 0
                 # weight_i
                 if token in tfidf[i]:
-                    row['weight_d'+str(i+1)] = tfidf[i][token] + 1
+                    row['weight_d'+str(i+1)] = tfidf[i][token]
                 else:
                     row['weight_d'+str(i+1)] = 0
-            # df
-            if token in df:
-                df_ = df[token]
-            else:
-                df_ = 0
-
-            # D/df
-            if df_ > 0:
-                D_df = D / df_
-            else:
-                D_df = 0
-
-            # IDF
-            if token in idf:
-                IDF = idf[token]
-            else:
-                IDF = 0
-
-            # IDF+1
-            IDF_1 = IDF + 1
 
             row['df'] = df_
             row['D/df'] = D_df
@@ -268,11 +272,12 @@ def render_information_retrieval():
             row['IDF+1'] = IDF_1
 
             df_result = df_result.append(row, ignore_index=True)
+            df_result['D/df'] = df_result['D/df'].astype(float).apply(lambda x: format(x, '.4f').rstrip('0').rstrip('.'))
 
         st.table(df_result)
         
         return df_result
-    
+
     """ VSM Function """
     
     def vsm_tfidf_query(documents, tokens):   
@@ -361,8 +366,9 @@ def render_information_retrieval():
             row['IDF'] = IDF
             row['IDF+1'] = IDF_1
 
-            df_result = pd.concat(
-                [df_result, pd.DataFrame(row, index=[0])], ignore_index=True)
+            df_result = pd.concat( [df_result, pd.DataFrame(row, index=[0])], ignore_index=True)
+            
+            df_result['D/df'] = df_result['D/df'].astype(float).apply(lambda x: format(x, '.4f').rstrip('0').rstrip('.'))
             
         st.table(df_result)
 
