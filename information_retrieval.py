@@ -14,7 +14,6 @@ from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
 from PyPDF2 import PdfReader
 
 def render_information_retrieval():
-      
     st.markdown("""
     <style>
     table td:nth-child(1) {
@@ -127,27 +126,6 @@ def render_information_retrieval():
                 else:
                     row.append("0")
             rows.append(row)
-        return rows
-    # def B_build_table_incidence_matrix(data, indexed_files):
-    #     rows = []
-    #     for key, val in data.items():
-    #         row = []
-    #         for file_id, file_name in indexed_files.items(): 
-    #             row = [key]  
-    #             if file_id in val:
-    #                 row.append([key, file_id, "1"])
-    #             else:
-    #                 row.append([key, file_id, "0"])
-    #             rows.append(row)
-        # for file_id, file_name in indexed_files.items():
-        #     for word in words:
-        #         found = False
-        #         for row in rows:
-        #             if row[0] == word and row[1] == file_id:
-        #                 found = True
-        #                 break
-        #         if not found:
-        #             rows.append([word, file_id, "0"])
         return rows
     
     def B_search(query_words, index, indexed_files):
@@ -477,8 +455,6 @@ def render_information_retrieval():
                     documents.append(content.decode("utf-8"))
                     
     elif select_documents == "Texts":
-        # text_area = st.text_area("Enter Your Documents : ").split()
-        # documents.extend(text_area)
         num_documents = st.number_input("Number of Documents to Add", value=1, min_value=1, step=1)
         for i in range(num_documents):
             text_area = st.text_area(f"Enter Your Document {i+1}")
@@ -519,10 +495,7 @@ def render_information_retrieval():
                 st.warning("No matching files")
             else:
                 st.subheader("Results")
-                st.markdown(f"""
-                        Documents relevant to the query are :
-                            **{', '.join(results_files)}**
-                        """)
+                st.markdown(f""" Documents relevant to the query are : **{', '.join(results_files)}** """)
     
     with tab2:
         """TF-IDF"""
