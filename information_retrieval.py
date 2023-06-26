@@ -409,11 +409,14 @@ def render_information_retrieval():
         df_space_vector = pd.DataFrame( columns=['Token'] + ['Q' + chr(178)] + ['D'+str(i) + chr(178) for i in range(1, D)] + ['Q*D'+str(i) for i in range(1, D)])
         df_space_vector['Token'] = lexicon
         df_space_vector['Q' + chr(178)] = df_result['weight_Q'] ** 2
+        
         for i in range(1, D):
             df_space_vector['D'+str(i) + chr(178)] = df_result['weight_d'+str(i)] ** 2
+            
         for i in range(1, D):
             for j in range(len(df_space_vector)):
                 df_space_vector['Q*D'+str(i)][j] = df_space_vector['Q' + chr(178)][j] * df_space_vector['D'+str(i) + chr(178)][j]
+                
         st.table(df_space_vector)
         for i in range(1, D):
             st.latex(r'''Q \cdot D''' + str(i) + r''' = ''' + str(round(df_space_vector['Q*D' + str(i)].sum(), 4)) + r''' ''')
@@ -427,16 +430,17 @@ def render_information_retrieval():
         
         D = len(documents) + 1
         
-        df_cosine = pd.DataFrame(index=['Cosine'], columns=[
-                'D'+str(i) for i in range(1, D)])
+        df_cosine = pd.DataFrame(index=['Cosine'], columns=[ 'D'+str(i) for i in range(1, D)])
+        
         for i in range(1, D):
             st.latex(
                 r'''Cosine\;\theta_{D''' + str(i) + r'''}=\frac{''' + str(round(df_space_vector['Q*D' + str(i)].sum(), 4)) + '''}{''' + str(sqrt_q) + ''' * ''' + str(sqrt_d[i-1]) + '''}= ''' + str(round(df_space_vector['Q*D' + str(i)].sum() / (sqrt_q * sqrt_d[i-1]), 4)) + r'''''')
+            
             df_cosine['D'+str(i)] = df_space_vector['Q*D' + str(i)].sum() / (sqrt_q * sqrt_d[i-1])
         
         return df_cosine
     
-    """"""""""""""""""""""""""""""""""""
+    """"""""""""""""""""""""""""""""""""""""""""""""""""""
     st.subheader("Pre-Process")
     use_stopword = st.checkbox("Use Stopword?")
     if use_stopword:
