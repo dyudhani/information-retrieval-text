@@ -279,21 +279,14 @@ def render_information_retrieval():
         return df_result
 
     """ VSM Function """
-    
     def vsm_tfidf_query(documents, tokens):   
         
-        # menghitung df dan menghitung idf
-        df = {}
         D = len(documents) + 1
-        for i in range(D):
-            for token in set(tokens[i]):
-                if token not in df:
-                    df[token] = 1
-                else:
-                    df[token] += 1
 
-        idf = {token: math.log10(D/df[token]) for token in df}
-
+        # menyimpan hasil pada dataframe
+        df_result = pd.DataFrame(columns=['token'] + ['tf_Q'] + ['tf_d'+str(i) for i in range(1, D)] + [
+            'df', 'D/df', 'IDF', 'IDF+1'] + ['weight_Q'] + ['weight_d'+str(i) for i in range(1, D)])
+        
         # menghitung tf
         tf = []
         for i in range(D):
@@ -303,21 +296,27 @@ def render_information_retrieval():
                     tf[i][token] = 1
                 else:
                     tf[i][token] += 1
+                    
+        # menghitung df
+        df = {}
+        for i in range(D):
+            for token in set(tokens[i]):
+                if token not in df:
+                    df[token] = 1
+                else:
+                    df[token] += 1
 
+        # menghitung idf
+        idf = {token: math.log10(D/df[token]) for token in df}
+        
         # menghitung bobot tf-idf
         tfidf = []
         for i in range(D):
             tfidf.append({})
             for token in tf[i]:
-                tfidf[i][token] = tf[i][token] * idf[token]
-
-        def unique(list1):
-            x = np.array(list1)
-            return np.unique(x)
-
-        # menyimpan hasil pada dataframe
-        df_result = pd.DataFrame(columns=['token'] + ['tf_Q'] + ['tf_d'+str(i) for i in range(1, D)] + [
-            'df', 'D/df', 'IDF', 'IDF+1'] + ['weight_Q'] + ['weight_d'+str(i) for i in range(1, D)])
+                tfidf[i][token] = tf[i][token] * (idf[token] + 1)
+                
+        # Menampilkan data pada kolom
         for token in lexicon:
             row = {'token': token}
             if token in tf[0]:
@@ -338,7 +337,7 @@ def render_information_retrieval():
                     row['tf_d'+str(i)] = 0
                 # weight_i
                 if token in tfidf[i]:
-                    row['weight_d'+str(i)] = tfidf[i][token] + 1
+                    row['weight_d'+str(i)] = tfidf[i][token]
                 else:
                     row['weight_d'+str(i)] = 0
             # df
