@@ -469,7 +469,7 @@ def render_information_retrieval():
     tab1, tab2, tab3 = st.tabs(["Boolean", "TF-IDF", "VSM"])
         
     with tab1:
-        """Boolean"""
+        """Tab Boolean"""
         if query:
             st.header("Boolean")
             index, indexed_files = B_build_index(documents, use_stopword, stop_language, stem_or_lem)
@@ -498,7 +498,7 @@ def render_information_retrieval():
                 st.markdown(f""" Documents relevant to the query are : **{', '.join(results_files)}** """)
     
     with tab2:
-        """TF-IDF"""
+        """Tab TF-IDF"""
         if query:
             documents = [preprocess(doc) for doc in documents]
             query = preprocess(query)
@@ -527,7 +527,7 @@ def render_information_retrieval():
             st.table(df_weight_sorted.sort_values( by=['Sum Weight'], ascending=False))
         
     with tab3:
-        """VSM"""
+        """Tab VSM"""
         # tokenisasi
         tokens = [query] + [doc for doc in documents]
         lexicon = []
