@@ -43,7 +43,6 @@ def render_information_retrieval():
 
 
     def preprocess(text):
-        text = text.lower()
         text = remove_special_characters(text)
         text = re.sub(re.compile('\d'), '', text)
         words = word_tokenize(text)
@@ -70,9 +69,18 @@ def render_information_retrieval():
         })
         st.table(df_query)
         
-    def display_preprocessed_documents(tokens):
+    def display_preprocessed_documents_boolean(tokens):
         df_token = pd.DataFrame({
             'Dokumen': ['Dokumen '+str(i+1) for i in range(D)],
+            'Token': tokens
+        })
+        st.table(df_token)
+        
+    def display_preprocessed_documents_tfidf(tokens):
+        D = len(documents) + 1
+        df_token = pd.DataFrame({
+            # 'Dokumen': ['Dokumen '+str(i+1) for i in range(D)],
+            'Dokumen': ['Query'] + ['Dokumen ' + str(i) for i in range(1, D)],
             'Token': tokens
         })
         st.table(df_token)
@@ -93,7 +101,7 @@ def render_information_retrieval():
             word_freq[word] = words.count(word)
         return word_freq
     
-    def B_build_index(text_list, use_stopword, stop_language, stem_or_lem):
+    def B_build_index(text_list):
         idx = 1
         indexed_files = {}
         index = {}
@@ -103,9 +111,7 @@ def render_information_retrieval():
             for word, freq in B_unique_words_and_freq(words).items():
                 if word not in index:
                     index[word] = {}
-                if idx not in index[word]:
-                    index[word][idx] = 0
-                index[word][idx] += 1
+                index[word][idx] = freq
             idx += 1
         return index, indexed_files
 
@@ -137,14 +143,14 @@ def render_information_retrieval():
             else:
                 different_words.append(word.lower())
         if not different_words:
-            st.write("Please enter query words")
+            st.write("Harap masukkan kata kunci query")
             return []
         results = set(index[different_words[0]])
         for word in different_words[1:]:
             if word.lower() in index:
                 results = set(index[word.lower()]) & results
             else:
-                st.write(f"{word} not found in documents")
+                st.write(f"{word} tidak ditemukan dalam dokumen")
                 return []
         for word in connecting_words:
             if word == "and":
@@ -153,7 +159,7 @@ def render_information_retrieval():
                     if word.lower() in index:
                         next_results = set(index[word.lower()]) & next_results
                     else:
-                        st.write(f"{word} not found in documents")
+                        st.write(f"{word} tidak ditemukan dalam dokumen")
                         return []
                 results = results & next_results
             elif word == "or":
@@ -169,6 +175,26 @@ def render_information_retrieval():
                         not_results = not_results | set(index[word.lower()])
                 results = set(index[different_words[0]]) - not_results
         return results
+    
+    def boolean_search(query_words, index, indexed_files):
+        results = set()
+        
+        for word in query_words:
+            if word.lower() in index:
+                files = index[word.lower()]
+                results.update(files)
+        
+        return results
+    
+    def merge_results(results1, results2, operator):
+        if operator == 'AND':
+            return results1.intersection(results2)
+        elif operator == 'OR':
+            return results1.union(results2)
+        elif operator == 'NOT':
+            return results1.difference(results2)
+        else:
+            raise ValueError("Operator not supported.")
     
     """ TF-IDF Function """
     def tfidf_display_query(documents, query, tokens):
@@ -254,6 +280,100 @@ def render_information_retrieval():
 
         st.table(df_result)
         
+        return df_result
+
+    def tfidf_display_document(documents, tokens):   
+        
+        D = len(documents) + 1
+
+        # menyimpan hasil pada dataframe
+        df_result = pd.DataFrame(columns=['token'] + ['tf_Q'] + ['tf_d'+str(i) for i in range(1, D)] + [
+            'df', 'D/df', 'IDF', 'IDF+1'] + ['weight_Q'] + ['weight_d'+str(i) for i in range(1, D)])
+        
+        # menghitung tf
+        tf = []
+        for i in range(D):
+            tf.append({})
+            for token in tokens[i]:
+                if token not in tf[i]:
+                    tf[i][token] = 1
+                else:
+                    tf[i][token] += 1
+                    
+        # menghitung df
+        df = {}
+        for i in range(D):
+            for token in set(tokens[i]):
+                if token not in df:
+                    df[token] = 1
+                else:
+                    df[token] += 1
+
+        # menghitung idf
+        idf = {token: math.log10(D/df[token]) for token in df}
+        
+        # menghitung bobot tf-idf
+        tfidf = []
+        for i in range(D):
+            tfidf.append({})
+            for token in tf[i]:
+                tfidf[i][token] = tf[i][token] * (idf[token] + 1)
+                
+        # Menampilkan data pada kolom
+        for token in lexicon:
+            row = {'token': token}
+            if token in tf[0]:
+                row['tf_Q'] = tf[0][token]
+            else:
+                row['tf_Q'] = 0
+
+            if token in tfidf[0]:
+                row['weight_Q'] = tfidf[0][token]
+            else:
+                row['weight_Q'] = 0
+
+            for i in range(1, D):
+                # tf_i
+                if token in tf[i]:
+                    row['tf_d'+str(i)] = tf[i][token]
+                else:
+                    row['tf_d'+str(i)] = 0
+                # weight_i
+                if token in tfidf[i]:
+                    row['weight_d'+str(i)] = tfidf[i][token]
+                else:
+                    row['weight_d'+str(i)] = 0
+            # df
+            if token in df:
+                df_ = df[token]
+            else:
+                df_ = 0
+
+            # D/df
+            if df_ > 0:
+                D_df = D / df_
+            else:
+                D_df = 0
+
+            # IDF
+            if token in idf:
+                IDF = idf[token]
+            else:
+                IDF = 0
+
+            # IDF+1
+            IDF_1 = IDF + 1
+            row['df'] = df_
+            row['D/df'] = D_df
+            row['IDF'] = IDF
+            row['IDF+1'] = IDF_1
+
+            df_result = pd.concat( [df_result, pd.DataFrame(row, index=[0])], ignore_index=True)
+            
+            df_result['D/df'] = df_result['D/df'].astype(float).apply(lambda x: format(x, '.4f').rstrip('0').rstrip('.'))
+            
+        st.table(df_result)
+
         return df_result
 
     """ VSM Function """
@@ -464,6 +584,8 @@ def render_information_retrieval():
 
     st.subheader("Query")
     query = st.text_input('Enter your query :')
+    query_words = word_tokenize(query)
+    query = preprocess(query)
         
     st.subheader("Result")
     tab1, tab2, tab3 = st.tabs(["Boolean", "TF-IDF", "VSM"])
@@ -472,39 +594,74 @@ def render_information_retrieval():
         """Tab Boolean"""
         if query:
             st.header("Boolean")
-            index, indexed_files = B_build_index(documents, use_stopword, stop_language, stem_or_lem)
-            inverted_index_table = B_build_table(index)
-            query_words = word_tokenize(query)
+            documents = [preprocess(doc) for doc in documents] 
+            tokens =  [doc for doc in documents]
+            D = len(documents)
             
-            st.subheader("Inverted Index")
-            inverted_index_table = pd.DataFrame(inverted_index_table, columns=["Term", "Posting List"])
-            st.table(inverted_index_table)
+            st.write("Preprocessing Query :")
+            display_preprocessed_query(query)
             
-            results_files = []
-            if query:
-                files = B_search(query_words, index, indexed_files)
-                results_files = [indexed_files[file_id] for file_id in files]
+            st.write("Preprocessing Each Document :")
+            display_preprocessed_documents_boolean(tokens)
+            
+            index, indexed_files = B_build_index(documents)
+            
+            if query_words:
+                inverted_index_table = B_build_table(index)
+                
+                # Mendapatkan hasil pencarian menggunakan operasi AND, OR, atau NOT
+                results = set()
+                operator = None
+                for word in query_words:
+                    if word.lower() == 'and' or word.lower() == 'or' or word.lower() == 'not':
+                        operator = word.upper()
+                    else:
+                        if operator is None:
+                            results = boolean_search([word], index, indexed_files)
+                        else:
+                            results = merge_results(results, boolean_search([word], index, indexed_files), operator)
+                        operator = None
+                
+                results_files = [indexed_files[file_id] for file_id in results]
+                
+                st.subheader("Inverted Index")
+                df_inverted_index_table = pd.DataFrame(
+                    inverted_index_table, columns=["Term", "Posting List"])
+                st.table(df_inverted_index_table)
 
-            st.subheader("Incidence Matrix")
-            incidence_matrix_table_header = ["Term"] + [file_name for file_name in indexed_files.values()]
-            incidence_matrix_table = B_build_table_incidence_matrix(index, indexed_files)
-            df_incidence_matrix_table = pd.DataFrame( incidence_matrix_table, columns=incidence_matrix_table_header)
-            st.table(df_incidence_matrix_table)
+                st.subheader("Incidence Matrix")
+                incidence_matrix_table_header = ["Term"] + [file_name for file_name in indexed_files.values()]
+                incidence_matrix_table = B_build_table_incidence_matrix(index, indexed_files)
+                df_incidence_matrix_table = pd.DataFrame( incidence_matrix_table, columns=incidence_matrix_table_header)
+                st.table(df_incidence_matrix_table)
 
-            if not results_files:
-                st.warning("No matching files")
-            else:
-                st.subheader("Results")
-                st.markdown(f""" Documents relevant to the query are : **{', '.join(results_files)}** """)
+                if not results_files:
+                    st.warning("No matching files")
+                else:
+                    st.subheader("Results")
+                    st.markdown(f""" Documents relevant to the query are : **{', '.join(results_files)}** """)
+                    
+                    
+                # st.write("Rank Based On Weight :")
+                # df_rank_sorted = pd.DataFrame({
+                #     'Query' : query,
+                #     # 'Document' : ['Document '+str(i+1) for i in range(D)]
+                # })
+                
+                # st.table(df_rank_sorted.sort_values( by=['Query'], ascending=False))
     
     with tab2:
         """Tab TF-IDF"""
         if query:
-            documents = [preprocess(doc) for doc in documents]
-            query = preprocess(query)
-            tokens = [doc for doc in documents]
+            # documents = [preprocess(doc) for doc in documents]  
+            tokens = [query] + [doc for doc in documents]
             df = {}
             D = len(documents)
+            lexicon = []
+            for token in tokens:
+                for word in token:
+                    if word not in lexicon:
+                        lexicon.append(word)
             
             st.header("TF - IDF")
             st.write("Preprocessing Query :")
@@ -512,10 +669,13 @@ def render_information_retrieval():
             
             st.subheader("")
             st.write("Preprocessing Each Document :")
-            display_preprocessed_documents(tokens)
+            display_preprocessed_documents_tfidf(tokens)
         
             st.write("TF-IDF Table Query :")
             tfidf_query = tfidf_display_query(documents, query, tokens)
+            
+            # st.write("TF-IDF Table Documents :")
+            # tfidf_display_document(documents, tokens)
             
             st.write("Rank Based On Weight :")
             df_weight_sorted = pd.DataFrame({
