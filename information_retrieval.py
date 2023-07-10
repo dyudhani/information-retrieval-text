@@ -94,7 +94,7 @@ def render_information_retrieval():
         st.table(df_token)
     
     def display_preprocessed_documents_jarowinkler(tokens):
-        D = len(documents) + 1
+        D = len(documents)
         df_token = pd.DataFrame({
             'Dokumen': ['Dokumen '+ str(i) for i in range(1, D)],
             'Token': tokens
@@ -788,33 +788,89 @@ def render_information_retrieval():
     with tab4:
         """Tab Jaro-Winkler"""
         if query:
-            # documents = [preprocess(doc) for doc in documents]
-            tokens =  [query] + [doc for doc in documents]
+            # Preprocess documents
+            documents = [preprocess(doc) for doc in documents]
             
-            D = len(documents) + 1
-            
-            for i in range(1, D):
-                st.latex(
-                    r'''Dw\{D''' + str(i) + r'''''')
-
+            # Display Jaro-Winkler section
             st.header("Jaro-Winkler")
-            st.write("Preprocessing Query :")
+            st.write("Preprocessing Query:")
             display_preprocessed_query(query)
-            
-            st.write("Preprocessing Each Document :")
-            display_preprocessed_documents_jarowinkler(tokens)
-            
+
+            # st.write("Preprocessing Each Document:")
+            # display_preprocessed_documents_jarowinkler(tokens)
+
+            # Calculate lengths
+            len1 = len(query)
+
+            # Initialize list to store Jaro similarity for each document
+            jaro_similarities = []
+
+            # Calculate Jaro similarity for each document
+            for document in documents:
+                len2 = len(document)
+
+                # Maximum allowed distance for matching characters
+                match_distance = max(len1, len2) // 2 - 1
+
+                # Initialize variables for matches, transpositions, and common characters
+                matches = 0
+                transpositions = 0
+                common_chars = []
+
+                # Find matching characters and transpositions
+                for i in range(len1):
+                    start = max(0, i - match_distance)
+                    end = min(i + match_distance + 1, len2)
+                    for j in range(start, end):
+                        if query[i] == document[j]:
+                            matches += 1
+                            if i != j:
+                                transpositions += 1
+                            common_chars.append(query[i])
+                            break
+
+                # Calculate Jaro similarity
+                if matches == 0:
+                    jaro_similarity = 0
+                else:
+                    jaro_similarity = (
+                        matches / len1 +
+                        matches / len2 +
+                        (matches - transpositions) / matches
+                    ) / 3
+
+                jaro_similarities.append(jaro_similarity)
+
+                # Display Jaro similarity equation for the current document
+                st.latex(r'''Jaro Similarity (Document ''' + str(documents.index(document)+1) + r''') = \frac{''' + str(matches) + r'''}{''' + str(len1) + r'''} + \frac{''' + str(matches) + r'''}{''' + str(len2) + r'''} + \frac{''' + str(matches) + r''' - ''' + str(transpositions) + r'''}{''' + str(matches) + r'''} = ''' + str(jaro_similarity) + r'''''')
+
             # Calculate Jaro-Winkler Similarity for each document
             similarities = []
-            for document in tokens:
-                similarity = calculate_jaro_winkler_similarity(query, document)
-                similarities.append(similarity)
-                
+            for index, document in enumerate(documents):
+                len3 = len(document)
+                common_prefix_len = 0
+                for i in range(min(len1, len3)):
+                    if query[i] == document[i]:
+                        common_prefix_len += 1
+                    else:
+                        break
+
+                jaro_winkler_similarity = jaro_similarities[index] + (common_prefix_len * 0.1 * (1 - jaro_similarities[index]))
+                similarities.append(jaro_winkler_similarity)
+            
             # Rank the documents based on similarity
             ranked_documents = sorted(enumerate(documents, start=1), key=lambda x: similarities[x[0] - 1], reverse=True)
 
-            # Display the ranked documents
+            # Display the ranked documents in a table
             st.write("Ranked Documents:")
+            table_data = []
+            headers = ["Rank", "Document Index", "Similarity"]
+            table_data.append(headers)  # Add headers as the first row of table_data
+
             for rank, (document_index, document) in enumerate(ranked_documents, start=1):
                 similarity = similarities[document_index - 1]
-                st.write(f"Rank {rank}: Document {document_index}, Similarity: {similarity}")
+                table_data.append([rank, document_index, similarity])
+
+            # Display the table with renamed headers
+            table_data_renamed = [headers] + table_data[1:]  # Exclude the original header row
+            st.table(table_data_renamed)
