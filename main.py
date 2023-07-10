@@ -1,8 +1,5 @@
 import home
 import information_retrieval
-# import boolean
-# import TFIDF
-# import VSM
 import streamlit as st
 from streamlit_option_menu import option_menu
 

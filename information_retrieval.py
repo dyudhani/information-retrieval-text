@@ -4,8 +4,8 @@ import pandas as pd
 import numpy as np
 import math
 import nltk
-# nltk.download('stopwords')
-# nltk.download('punkt')
+nltk.download('stopwords')
+nltk.download('punkt')
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
@@ -89,6 +89,14 @@ def render_information_retrieval():
         D = len(documents) + 1
         df_token = pd.DataFrame({
             'Dokumen': ['Query'] + ['Dokumen ' + str(i) for i in range(1, D)],
+            'Token': tokens
+        })
+        st.table(df_token)
+    
+    def display_preprocessed_documents_jarowinkler(tokens):
+        D = len(documents) + 1
+        df_token = pd.DataFrame({
+            'Dokumen': ['Dokumen '+ str(i) for i in range(1, D)],
             'Token': tokens
         })
         st.table(df_token)
@@ -538,6 +546,59 @@ def render_information_retrieval():
         
         return df_cosine
     
+    """ Jaro-Winkler """
+    def calculate_jaro_similarity(str1, str2):
+        len1 = len(str1)
+        len2 = len(str2)
+
+        # Maximum allowed distance for matching characters
+        match_distance = max(len1, len2) // 2 - 1
+
+        # Initialize variables for matches, transpositions, and common characters
+        matches = 0
+        transpositions = 0
+        common_chars = []
+
+        # Find matching characters and transpositions
+        for i in range(len1):
+            start = max(0, i - match_distance)
+            end = min(i + match_distance + 1, len2)
+            for j in range(start, end):
+                if str1[i] == str2[j]:
+                    matches += 1
+                    if i != j:
+                        transpositions += 1
+                    common_chars.append(str1[i])
+                    break
+
+        # Calculate Jaro similarity
+        if matches == 0:
+            jaro_similarity = 0
+        else:
+            jaro_similarity = (
+                matches / len1 +
+                matches / len2 +
+                (matches - transpositions) / matches
+            ) / 3
+
+        return jaro_similarity
+
+    def calculate_jaro_winkler_similarity(str1, str2, prefix_weight=0.1):
+        jaro_similarity = calculate_jaro_similarity(str1, str2)
+
+        # Calculate prefix match length
+        prefix_match_len = 0
+        for i in range(min(len(str1), len(str2))):
+            if str1[i] == str2[i]:
+                prefix_match_len += 1
+            else:
+                break
+
+        # Calculate Jaro-Winkler similarity
+        jaro_winkler_similarity = jaro_similarity + prefix_match_len * prefix_weight * (1 - jaro_similarity)
+
+        return jaro_winkler_similarity
+    
     """"""""""""""""""""""""""""""""""""""""""""""""""""""
     st.subheader("Pre-Process")
     use_stopword = st.checkbox("Use Stopword?")
@@ -588,7 +649,7 @@ def render_information_retrieval():
     query = preprocess(query)
         
     st.subheader("Result")
-    tab1, tab2, tab3 = st.tabs(["Boolean", "TF-IDF", "VSM"])
+    tab1, tab2, tab3, tab4 = st.tabs(["Boolean", "TF-IDF", "VSM", "Jaro-Winkler"])
         
     with tab1:
         """Tab Boolean"""
@@ -640,15 +701,6 @@ def render_information_retrieval():
                 else:
                     st.subheader("Results")
                     st.markdown(f""" Documents relevant to the query are : **{', '.join(results_files)}** """)
-                    
-                    
-                # st.write("Rank Based On Weight :")
-                # df_rank_sorted = pd.DataFrame({
-                #     'Query' : query,
-                #     # 'Document' : ['Document '+str(i+1) for i in range(D)]
-                # })
-                
-                # st.table(df_rank_sorted.sort_values( by=['Query'], ascending=False))
     
     with tab2:
         """Tab TF-IDF"""
@@ -732,3 +784,37 @@ def render_information_retrieval():
             df_weight_sorted['Rank'] = df_weight_sorted['Cosine'].rank(ascending=False).astype(int)
 
             st.table(df_weight_sorted.sort_values(by=['Cosine'], ascending=False))
+    
+    with tab4:
+        """Tab Jaro-Winkler"""
+        if query:
+            # documents = [preprocess(doc) for doc in documents]
+            tokens =  [query] + [doc for doc in documents]
+            
+            D = len(documents) + 1
+            
+            for i in range(1, D):
+                st.latex(
+                    r'''Dw\{D''' + str(i) + r'''''')
+
+            st.header("Jaro-Winkler")
+            st.write("Preprocessing Query :")
+            display_preprocessed_query(query)
+            
+            st.write("Preprocessing Each Document :")
+            display_preprocessed_documents_jarowinkler(tokens)
+            
+            # Calculate Jaro-Winkler Similarity for each document
+            similarities = []
+            for document in tokens:
+                similarity = calculate_jaro_winkler_similarity(query, document)
+                similarities.append(similarity)
+                
+            # Rank the documents based on similarity
+            ranked_documents = sorted(enumerate(documents, start=1), key=lambda x: similarities[x[0] - 1], reverse=True)
+
+            # Display the ranked documents
+            st.write("Ranked Documents:")
+            for rank, (document_index, document) in enumerate(ranked_documents, start=1):
+                similarity = similarities[document_index - 1]
+                st.write(f"Rank {rank}: Document {document_index}, Similarity: {similarity}")
